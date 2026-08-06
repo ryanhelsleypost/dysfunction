@@ -61,7 +61,7 @@
    Single-file, canvas 2D, procedural pixel art + chiptune.
    Deploy: this is index.html at repo root (GitHub Pages).
    ============================================================ */
-var BUILD = "1786050862"; // replaced at deploy time (unix ts)
+var BUILD = "1786050986"; // replaced at deploy time (unix ts)
 
 /* -------------------- Self-updater (matches your deploy flow) -------------------- */
 (function(){
@@ -382,7 +382,7 @@ function updateDog(dt){
     // run toward player from behind
     var target=player.x - player.face*6;
     dog.x += (target-dog.x)*Math.min(1,dt*10);
-    if(Math.abs(dog.x-target)<4 || dog.t>0.5){ dog.mode='charge'; dog.t=0; dog.vx=player.face*260; SFX.bark(); spawnBark(dog.x,dog.y); }
+    if(Math.abs(dog.x-target)<4 || dog.t>0.5){ dog.mode='charge'; dog.t=0; dog.vx=player.face*260; SFX.bark(); burstBark(dog.x, dog.y-6, 7); }
   } else if(dog.mode==='charge'){
     dog.x += dog.vx*dt;
     // damage enemies overlapped
@@ -391,6 +391,7 @@ function updateDog(dt){
       if(Math.abs((dog.x)-(e.x+e.w/2))<20 && !dog.hit[i]){
         dog.hit[i]=true; e.dead=true; SFX.bite(); addScore(100,e.x,e.y-10);
         for(var p=0;p<6;p++) particles.push(makeP(e.x+9,e.y+8,'star'));
+        burstBark(e.x+9, e.y+2, 5);
         shake=4;
       }
     }
@@ -402,7 +403,6 @@ function updateDog(dt){
         if(boss.hp<=0){ boss.defeated=true; onWin(); }
       }
     }
-    spawnBark(dog.x,dog.y);
     if(dog.t>0.55){ dog.mode='leave'; dog.t=0; }
   } else if(dog.mode==='leave'){
     dog.x += player.face*300*dt;
@@ -434,13 +434,15 @@ var BARKS=['woof','woof!','WOOF','14','14!','1-4','14?','woof 14','14!!','bark',
 function makeP(x,y,type){
   var a=Math.random()*Math.PI*2;
   if(type==='bark'){
-    var o={ x:x,y:y, vx:(Math.random()*2-1)*9, vy:-16-Math.random()*8, t:0, life:1.4+Math.random()*0.5, type:type };
+    var ba=Math.random()*Math.PI*2, bs=55+Math.random()*75;
+    var o={ x:x,y:y, vx:Math.cos(ba)*bs, vy:Math.sin(ba)*bs-18, t:0, life:1.1+Math.random()*0.5, type:type };
     o.txt = BARKS[(Math.random()*BARKS.length)|0];
     return o;
   }
   var sp=type==='heart'?30:70;
   return { x:x,y:y, vx:Math.cos(a)*sp*(0.4+Math.random()), vy:(type==='heart'?-40:-Math.random()*90-20), t:0, life:0.6+Math.random()*0.4, type:type };
 }
+function burstBark(x,y,n){ for(var i=0;i<(n||5);i++) particles.push(makeP(x, y, 'bark')); }
 
 /* ============================================================
    UPDATE
@@ -545,7 +547,10 @@ function update(dt){
   }
 
   // particles / floats
-  for(var k=particles.length-1;k>=0;k--){ var pt=particles[k]; pt.t+=dt; pt.x+=pt.vx*dt; pt.y+=pt.vy*dt; if(pt.type!=='heart'&&pt.type!=='bark') pt.vy+=200*dt; if(pt.t>pt.life) particles.splice(k,1); }
+  for(var k=particles.length-1;k>=0;k--){ var pt=particles[k]; pt.t+=dt; pt.x+=pt.vx*dt; pt.y+=pt.vy*dt;
+    if(pt.type==='bark'){ var d=Math.min(1,dt*4.5); pt.vx-=pt.vx*d; pt.vy-=pt.vy*d; }
+    else if(pt.type!=='heart') pt.vy+=200*dt;
+    if(pt.t>pt.life) particles.splice(k,1); }
   for(var f=floats.length-1;f>=0;f--){ var fl=floats[f]; fl.t+=dt; fl.y-=18*dt; if(fl.t>1.1) floats.splice(f,1); }
 
   if(player.hp<=0 && STATE==='PLAY'){ onLose(); }
