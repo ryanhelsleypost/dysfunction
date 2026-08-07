@@ -18,22 +18,22 @@
   /* Touch controls */
   #pad { position:fixed; inset:0; pointer-events:none; z-index:5; }
   .btn { position:absolute; pointer-events:auto; display:flex; flex-direction:column; align-items:center; justify-content:center;
-    background:var(--btn); border:3px solid rgba(255,255,255,.35); border-radius:16px;
-    color:#fff; font-weight:bold; font-family:'Courier New',monospace; line-height:1;
-    text-shadow:0 2px 0 #000; backdrop-filter: blur(2px); }
-  .btn:active, .btn.on { background:var(--btnA); transform:scale(.96); }
-  .cap { font-size:10px; opacity:.9; margin-top:3px; letter-spacing:.5px; }
-  #bLeft  { left:16px;  bottom:calc(env(safe-area-inset-bottom,0) + 20px); width:90px; height:90px; font-size:34px; }
-  #bRight { left:118px; bottom:calc(env(safe-area-inset-bottom,0) + 20px); width:90px; height:90px; font-size:34px; }
-  #bJump  { right:70px; bottom:calc(env(safe-area-inset-bottom,0) + 122px); width:96px; height:96px; font-size:16px; }
-  #bA1    { right:118px; bottom:calc(env(safe-area-inset-bottom,0) + 20px); width:90px; height:90px; font-size:30px; }
-  #bA2    { right:16px;  bottom:calc(env(safe-area-inset-bottom,0) + 20px); width:90px; height:90px; font-size:30px; }
+    background:rgba(18,22,38,.28); border:2px solid rgba(255,255,255,.18); border-radius:13px;
+    color:rgba(255,255,255,.8); font-weight:bold; font-family:'Courier New',monospace; line-height:1;
+    text-shadow:0 1px 0 #000; opacity:.42; transition:opacity .12s, background .12s; }
+  .btn:active, .btn.on { background:rgba(60,95,155,.55); border-color:rgba(255,255,255,.5); opacity:1; transform:scale(.95); }
+  .cap { font-size:8px; opacity:.85; margin-top:2px; letter-spacing:.3px; }
+  #bLeft  { left:14px;  bottom:calc(env(safe-area-inset-bottom,0) + 16px); width:56px; height:56px; font-size:23px; }
+  #bRight { left:76px;  bottom:calc(env(safe-area-inset-bottom,0) + 16px); width:56px; height:56px; font-size:23px; }
+  #bJump  { right:52px; bottom:calc(env(safe-area-inset-bottom,0) + 84px); width:60px; height:60px; font-size:12px; }
+  #bA1    { right:78px; bottom:calc(env(safe-area-inset-bottom,0) + 16px); width:60px; height:60px; font-size:21px; }
+  #bA2    { right:14px; bottom:calc(env(safe-area-inset-bottom,0) + 16px); width:60px; height:60px; font-size:21px; }
   .lbl { position:absolute; bottom:4px; font-size:9px; opacity:.8; }
   #topbar { position:fixed; top:calc(env(safe-area-inset-top,0) + 6px); right:8px; z-index:6; display:flex; gap:6px; }
-  .mini { pointer-events:auto; background:var(--btn); border:2px solid rgba(255,255,255,.3);
-    border-radius:10px; color:#fff; font-family:'Courier New',monospace; font-size:12px;
-    padding:6px 9px; font-weight:bold; }
-  .mini:active { background:var(--btnA); }
+  .mini { pointer-events:auto; background:rgba(18,22,38,.4); border:2px solid rgba(255,255,255,.25);
+    border-radius:10px; color:#fff; font-family:'Courier New',monospace; font-size:11px;
+    padding:5px 8px; font-weight:bold; opacity:.7; }
+  .mini:active { background:var(--btnA); opacity:1; }
   @media (hover:hover) and (pointer:fine){ /* desktop: hide big touch buttons */
     #bLeft,#bRight,#bJump,#bA1,#bA2 { display:none; }
   }
@@ -61,7 +61,7 @@
    Single-file, canvas 2D, procedural pixel art + chiptune.
    Deploy: this is index.html at repo root (GitHub Pages).
    ============================================================ */
-var BUILD = "1786069230"; // replaced at deploy time (unix ts)
+var BUILD = "1786120861"; // replaced at deploy time (unix ts)
 
 /* -------------------- Self-updater (matches your deploy flow) -------------------- */
 (function(){
@@ -222,6 +222,7 @@ function bind(id,k){
   el.addEventListener('mouseleave',up);
 }
 bind('bLeft','left'); bind('bRight','right'); bind('bJump','jump'); bind('bA1','a1'); bind('bA2','a2');
+var padEl=document.getElementById('pad');
 
 /* pointer for menus (tap canvas) */
 var pointer={x:0,y:0,hit:false};
@@ -1430,6 +1431,9 @@ function loop(now){
   } else {
     handleMenus();
   }
+
+  // show touch controls only during active play (menus/win/lose are tap-anywhere)
+  if(padEl) padEl.style.display = (STATE==='PLAY' && !paused) ? 'block' : 'none';
 
   // render
   g.fillStyle='#000'; g.fillRect(0,0,VW,VH);
