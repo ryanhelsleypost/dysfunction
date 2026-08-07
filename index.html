@@ -61,7 +61,7 @@
    Single-file, canvas 2D, procedural pixel art + chiptune.
    Deploy: this is index.html at repo root (GitHub Pages).
    ============================================================ */
-var BUILD = "1786050986"; // replaced at deploy time (unix ts)
+var BUILD = "1786067180"; // replaced at deploy time (unix ts)
 
 /* -------------------- Self-updater (matches your deploy flow) -------------------- */
 (function(){
@@ -93,6 +93,7 @@ var BUILD = "1786050986"; // replaced at deploy time (unix ts)
 var ROSTER = [
   {
     id:'ronda', name:'RONDA', locked:false, mode:"RONDA'S RECKONING",
+    sub:'Ronda & Sookie vs. everyone', i1:'🐕', i2:'💋',
     dogName:'SOOKIE',
     tagline:'Ronda & Sookie just want to be left alone.',
     a1:'SOOKIE ATTACK', a2:'PUPPY LOVE',
@@ -102,7 +103,15 @@ var ROSTER = [
     bossName:'TODD',
     bossLines:['Oh, my heart hurts!','I can fix it myself.','Officer Todd says no!',"I didn't feed the dogs yet.","I don't want to make dog food."]
   },
-  { id:'q2', name:'???', locked:true, tagline:'Coming soon — your call who.' },
+  {
+    id:'emma', name:'EMMA', locked:false, mode:"EMMA'S MELTDOWN",
+    sub:'find your stuff — DO NOT be late', i1:'🍩', i2:'🚂',
+    tagline:'Emma loses everything. Clock is ticking. Work awaits.',
+    a1:'SNACK ATTACK', a2:'EEEEETHAN',
+    enemyName:'THE LITTLE CREEPS',
+    bossName:'JORDAN',
+    bossLines:['smoochy smoochy','I only get to be 7 for so long','take me to McDonalds Bitch!','let me hug you!','wanna play wanna play?']
+  },
   { id:'q3', name:'???', locked:true, tagline:'Coming soon — new attacks, new enemies.' }
 ];
 
@@ -262,7 +271,13 @@ var SFX = {
   laugh:function(){ [64,60,57,60,55].forEach(function(m,i){ setTimeout(function(){ blip(midi(m),0.09,'square',0.22); },i*95); }); },
   win:function(){ [72,76,79,84].forEach(function(m,i){ setTimeout(function(){blip(midi(m),0.18,'square',0.28);}, i*140); }); },
   lose:function(){ [67,63,60,55].forEach(function(m,i){ setTimeout(function(){blip(midi(m),0.22,'triangle',0.28);}, i*180); }); },
-  select:function(){ blip(660,0.08,'square',0.25); }
+  select:function(){ blip(660,0.08,'square',0.25); },
+  snack:function(){ blip(440,0.06,'square',0.2); noise(0.04,0.12); },
+  pickup:function(){ [76,81,88].forEach(function(m,i){ setTimeout(function(){ blip(midi(m),0.09,'square',0.24); }, i*70); }); },
+  train:function(){ blip(150,0.14,'triangle',0.2); setTimeout(function(){ blip(150,0.14,'triangle',0.2); },170); setTimeout(function(){ blip(200,0.2,'triangle',0.2); },340); noise(0.25,0.05); },
+  scream:function(){ if(!audioReady||muted) return; var o=AC.createOscillator(), gg=AC.createGain(), t=AC.currentTime; o.type='sawtooth'; o.frequency.setValueAtTime(520,t); o.frequency.linearRampToValueAtTime(920,t+0.3); o.frequency.linearRampToValueAtTime(420,t+0.6); gg.gain.setValueAtTime(0.2,t); gg.gain.exponentialRampToValueAtTime(0.001,t+0.66); o.connect(gg); gg.connect(master); o.start(t); o.stop(t+0.7); },
+  kidLaugh:function(){ [74,78,74,78,81].forEach(function(m,i){ setTimeout(function(){ blip(midi(m),0.06,'square',0.2); }, i*75); }); },
+  fart:function(){ if(!audioReady||muted) return; var o=AC.createOscillator(), gg=AC.createGain(), t=AC.currentTime; o.type='sawtooth'; o.frequency.setValueAtTime(95,t); o.frequency.linearRampToValueAtTime(55,t+0.28); gg.gain.setValueAtTime(0.25,t); gg.gain.exponentialRampToValueAtTime(0.001,t+0.3); o.connect(gg); gg.connect(master); o.start(t); o.stop(t+0.32); noise(0.12,0.09); }
 };
 
 /* Music scheduler */
@@ -328,23 +343,44 @@ var selIndex=0;
 var GROUND = VH-30;
 var world = { len: 2600, scrollX:0 };
 var BOSS_TRIGGER=2380, BOSS_X=2510, ARENA_L=2440, ARENA_R=2560;
+// Emma level constants
+var EM_TRIGGER=2300, EM_ARENA_L=2360, EM_ARENA_R=2500, KIA_X=2556;
 var player, dog, enemies, projectiles, particles, floats, boss, score, combo, comboTimer, shake, winTimer, blinkT, introT;
+var items, clockT, clockMax, ethan, anxT, anxFX, emmaLoseReason;
 
 function resetGame(){
   world.scrollX=0;
   player = { x:60, y:GROUND-34, w:20, h:34, vx:0, vy:0, onGround:true, face:1,
-             hp:5, maxHp:5, inv:0, state:'idle', anim:0, hugT:0, petT:0,
+             hp:5, maxHp:5, inv:0, state:'idle', anim:0, hugT:0, petT:0, cryT:0, throwT:0,
              coyote:0, jumpBuf:0 };
   dog = { active:false, mode:'', x:0, y:0, vx:0, t:0, hit:{}, face:1 };
   enemies=[]; projectiles=[]; particles=[]; floats=[];
-  boss={ active:false, x:BOSS_X, y:GROUND-40, w:26, h:40, hp:10, maxHp:10, t:0, inv:0, state:'walk', dir:-1, defeated:false, taunt:0, tauntCd:1.2, line:'' };
   score=0; combo=0; comboTimer=0; shake=0; winTimer=0; blinkT=0; introT=1.6;
-  // seed enemies along the level
+  A1_CD=0; A2_CD=0;
+  if(char.id==='emma') emmaSetup(); else rondaSetup();
+}
+function rondaSetup(){
+  boss={ active:false, x:BOSS_X, y:GROUND-40, w:26, h:40, hp:10, maxHp:10, t:0, inv:0, state:'walk', dir:-1, defeated:false, taunt:0, tauntCd:1.2, line:'' };
   var gx=340;
   while(gx < BOSS_TRIGGER-140){
     enemies.push(makeEnemy(gx));
     gx += 180 + Math.random()*140;
   }
+  mus.boss=false;
+}
+function emmaSetup(){
+  world.len=2600;
+  items=[
+    {kind:'id',       label:'CAST ID',  x:560,  y:GROUND-14, got:false},
+    {kind:'keys',     label:'CAR KEYS', x:1300, y:GROUND-12, got:false},
+    {kind:'smoothie', label:'SMOOTHIE', x:1900, y:GROUND-16, got:false}
+  ];
+  clockMax=105; clockT=clockMax;
+  ethan={ active:false, mode:'', x:0, t:0, face:-1 };
+  anxT=8+Math.random()*4; anxFX=0; emmaLoseReason='melt';
+  var gx=520;
+  while(gx < EM_TRIGGER-80){ enemies.push(makeCreepy(gx)); gx += 150+Math.random()*120; }
+  boss={ active:false, x:EM_ARENA_R, y:GROUND-24, w:18, h:24, hp:10, maxHp:10, t:0, inv:0, dir:-1, defeated:false, taunt:0, tauntCd:1.0, line:'', fart:1.2 };
   mus.boss=false;
 }
 function makeEnemy(x){
@@ -353,6 +389,10 @@ function makeEnemy(x){
            shirt:shirts[(Math.random()*3)|0], face:-1,
            line:char.enemyLines[(Math.random()*char.enemyLines.length)|0],
            bubble:0, walkT:Math.random()*6, active:false };
+}
+function makeCreepy(x){
+  return { x:x, y:GROUND-16, w:14, h:16, hp:1, dead:false, face:-1,
+           walkT:Math.random()*6, wob:Math.random()*6, tone:(Math.random()<0.5), active:false };
 }
 
 /* ============================================================
@@ -470,8 +510,8 @@ function update(dt){
   }
   // variable jump height: release early = shorter hop
   if(!K.jump && player.vy<-70) player.vy=-70;
-  if(a1Edge) doAttack1();
-  if(a2Edge) doAttack2();
+  if(char.id==='emma'){ if(a1Edge) doSnack(); if(a2Edge) doEthan(); }
+  else { if(a1Edge) doAttack1(); if(a2Edge) doAttack2(); }
   jumpEdge=a1Edge=a2Edge=false;
 
   // physics
@@ -486,7 +526,9 @@ function update(dt){
   // pose timers
   if(player.petT>0){ player.petT-=dt; if(player.petT<=0 && player.state==='pet') player.state='idle'; }
   if(player.hugT>0){ player.hugT-=dt; if(player.hugT<=0 && player.state==='hug') player.state='idle'; }
-  if(player.state!=='pet'&&player.state!=='hug') player.state = player.onGround ? (player.vx!==0?'walk':'idle') : 'jump';
+  if(player.cryT>0){ player.cryT-=dt; if(player.cryT<=0 && player.state==='cry') player.state='idle'; }
+  if(player.throwT>0){ player.throwT-=dt; if(player.throwT<=0 && player.state==='throw') player.state='idle'; }
+  if(player.state!=='pet'&&player.state!=='hug'&&player.state!=='cry'&&player.state!=='throw') player.state = player.onGround ? (player.vx!==0?'walk':'idle') : 'jump';
   player.anim += dt* (player.state==='walk'?10:4);
   if(player.inv>0) player.inv-=dt;
 
@@ -497,54 +539,7 @@ function update(dt){
   var maxScroll = world.len - VW;
   if(world.scrollX>maxScroll) world.scrollX=maxScroll;
 
-  updateDog(dt);
-
-  // activate boss when near end
-  if(!boss.active && player.x > BOSS_TRIGGER){ boss.active=true; mus.boss=true; barCount=0; addFloat('TODD APPROACHES!',player.x, player.y-30, P.red); }
-
-  // enemies
-  for(var i=0;i<enemies.length;i++){ var e=enemies[i];
-    if(e.dead) continue;
-    // activate when on screen
-    if(!e.active && e.x < world.scrollX+VW+40) e.active=true;
-    if(!e.active) continue;
-    e.walkT+=dt;
-    // walk toward player
-    var dir = (player.x < e.x)? -1 : 1; e.face=dir;
-    e.x += dir*58*dt;
-    e.bubble = 1; // keep yelling
-    // contact damage
-    if(player.inv<=0 && aabb(player.x,player.y,player.w,player.h, e.x,e.y,e.w,e.h)){
-      hurtPlayer(1, e.x<player.x?1:-1);
-    }
-  }
-
-  // boss logic
-  if(boss.active && !boss.defeated){
-    boss.t+=dt; if(boss.inv>0) boss.inv-=dt;
-    // pace back and forth in arena (slower)
-    boss.x += boss.dir*20*dt;
-    if(boss.x<ARENA_L){ boss.x=ARENA_L; boss.dir=1; }
-    if(boss.x>ARENA_R){ boss.x=ARENA_R; boss.dir=-1; }
-    // taunt: show a line + 8-bit laugh, on its own timer
-    if(boss.taunt>0) boss.taunt-=dt;
-    boss.tauntCd-=dt;
-    if(boss.tauntCd<=0){ boss.tauntCd=3.4; boss.taunt=1.4;
-      boss.line=char.bossLines[(Math.random()*char.bossLines.length)|0]; SFX.laugh(); }
-    // throw (slower cadence, gentler barrage)
-    if(boss.t>1.9){ boss.t=0; throwThing(); if(boss.hp<=2 && Math.random()<0.4) setTimeout(throwThing,340); }
-    // contact
-    if(player.inv<=0 && aabb(player.x,player.y,player.w,player.h, boss.x,boss.y,boss.w,boss.h)){
-      hurtPlayer(1, boss.x<player.x?1:-1);
-    }
-  }
-  // projectiles
-  for(var j=projectiles.length-1;j>=0;j--){ var pr=projectiles[j];
-    pr.vy+=520*dt; pr.x+=pr.vx*dt; pr.y+=pr.vy*dt; pr.rot+=dt*10;
-    if(player.inv<=0 && aabb(player.x,player.y,player.w,player.h, pr.x-6,pr.y-6,12,12)){ hurtPlayer(1, pr.vx>0?-1:1); projectiles.splice(j,1); continue; }
-    if(pr.y>GROUND+4){ for(var d=0;d<4;d++) particles.push(makeP(pr.x,GROUND-4,'dust')); projectiles.splice(j,1); continue; }
-    if(pr.x<world.scrollX-40||pr.x>world.scrollX+VW+60) projectiles.splice(j,1);
-  }
+  if(char.id==='emma') emmaEntities(dt); else rondaEntities(dt);
 
   // particles / floats
   for(var k=particles.length-1;k>=0;k--){ var pt=particles[k]; pt.t+=dt; pt.x+=pt.vx*dt; pt.y+=pt.vy*dt;
@@ -568,6 +563,157 @@ function hurtPlayer(n,kb){
   addFloat('OW!', player.x, player.y-16, P.red);
 }
 function aabb(ax,ay,aw,ah,bx,by,bw,bh){ return ax<bx+bw&&ax+aw>bx&&ay<by+bh&&ay+ah>by; }
+
+/* ---------------- RONDA entities (dog/people/Todd) ---------------- */
+function rondaEntities(dt){
+  updateDog(dt);
+  if(!boss.active && player.x > BOSS_TRIGGER){ boss.active=true; mus.boss=true; barCount=0; addFloat('TODD APPROACHES!',player.x, player.y-30, P.red); }
+  for(var i=0;i<enemies.length;i++){ var e=enemies[i];
+    if(e.dead) continue;
+    if(!e.active && e.x < world.scrollX+VW+40) e.active=true;
+    if(!e.active) continue;
+    e.walkT+=dt;
+    var dir = (player.x < e.x)? -1 : 1; e.face=dir;
+    e.x += dir*58*dt; e.bubble=1;
+    if(player.inv<=0 && aabb(player.x,player.y,player.w,player.h, e.x,e.y,e.w,e.h)) hurtPlayer(1, e.x<player.x?1:-1);
+  }
+  if(boss.active && !boss.defeated){
+    boss.t+=dt; if(boss.inv>0) boss.inv-=dt;
+    boss.x += boss.dir*20*dt;
+    if(boss.x<ARENA_L){ boss.x=ARENA_L; boss.dir=1; }
+    if(boss.x>ARENA_R){ boss.x=ARENA_R; boss.dir=-1; }
+    if(boss.taunt>0) boss.taunt-=dt;
+    boss.tauntCd-=dt;
+    if(boss.tauntCd<=0){ boss.tauntCd=3.4; boss.taunt=1.4; boss.line=char.bossLines[(Math.random()*char.bossLines.length)|0]; SFX.laugh(); }
+    if(boss.t>1.9){ boss.t=0; throwThing(); if(boss.hp<=2 && Math.random()<0.4) setTimeout(throwThing,340); }
+    if(player.inv<=0 && aabb(player.x,player.y,player.w,player.h, boss.x,boss.y,boss.w,boss.h)) hurtPlayer(1, boss.x<player.x?1:-1);
+  }
+  for(var j=projectiles.length-1;j>=0;j--){ var pr=projectiles[j];
+    pr.vy+=520*dt; pr.x+=pr.vx*dt; pr.y+=pr.vy*dt; pr.rot+=dt*10;
+    if(player.inv<=0 && aabb(player.x,player.y,player.w,player.h, pr.x-6,pr.y-6,12,12)){ hurtPlayer(1, pr.vx>0?-1:1); projectiles.splice(j,1); continue; }
+    if(pr.y>GROUND+4){ for(var d=0;d<4;d++) particles.push(makeP(pr.x,GROUND-4,'dust')); projectiles.splice(j,1); continue; }
+    if(pr.x<world.scrollX-40||pr.x>world.scrollX+VW+60) projectiles.splice(j,1);
+  }
+}
+
+/* ============================================================
+   EMMA MODULE — snacks, tears, Ethan-train, brother Jordan
+   ============================================================ */
+var SNACKS=['donut','chips','soda','candy','burger'];
+function doSnack(){
+  if(A1_CD>0) return; A1_CD=0.42;
+  player.state='throw'; player.throwT=0.18;
+  var s=SNACKS[(Math.random()*SNACKS.length)|0];
+  projectiles.push({ x:player.x+player.w/2+player.face*8, y:player.y+10, vx:player.face*205, vy:-60, rot:0, type:s, owner:'player', life:0 });
+  SFX.snack(); addFloat('SNACK!', player.x+player.w/2, player.y-14, P.ui, 12);
+}
+function doEthan(){
+  if(A2_CD>0 || ethan.active) return; A2_CD=2.6;
+  ethan.active=true; ethan.mode='arrive'; ethan.t=0; ethan.face=-player.face;
+  ethan.x = player.x + player.face*130;
+  SFX.train(); addFloat('EEEEETHAN!', player.x+player.w/2, player.y-16, P.heart, 14);
+}
+function updateEthan(dt){
+  if(!ethan.active) return; ethan.t+=dt;
+  if(ethan.mode==='arrive'){
+    var tgt=player.x + player.face*24;
+    ethan.x += (tgt-ethan.x)*Math.min(1,dt*6);
+    if(Math.abs(ethan.x-tgt)<6 || ethan.t>1.1){ ethan.mode='love'; ethan.t=0; SFX.kiss();
+      player.state='hug'; player.hugT=1.0;
+      for(var i=0;i<8;i++){ particles.push(makeP(player.x+10,player.y+4,'heart')); if(i%2) particles.push(makeP(player.x+10,player.y+2,'flower')); }
+      if(player.hp<player.maxHp){ player.hp++; addFloat('+1 ♥',player.x,player.y-14,P.heart); }
+    }
+  } else if(ethan.mode==='love'){ if(ethan.t>0.8){ ethan.mode='leave'; ethan.t=0; } }
+  else if(ethan.mode==='leave'){ ethan.x += player.face*170*dt; if(ethan.t>1.2) ethan.active=false; }
+}
+function emmaAnxiety(){
+  anxFX=0.7; SFX.scream(); shake=6;
+  player.state='cry'; player.cryT=0.7;
+  addFloat('AAAAAH!', player.x+player.w/2, player.y-20, '#7fd7ff', 18);
+  var cx=player.x+player.w/2, R=80;
+  for(var i=0;i<enemies.length;i++){ var e=enemies[i]; if(e.dead) continue;
+    if(Math.abs((e.x+e.w/2)-cx)<R){ e.dead=true; addScore(80,e.x,e.y-8); for(var p=0;p<4;p++) particles.push(makeP(e.x+7,e.y+6,'tear')); }
+  }
+  for(var t=0;t<16;t++) particles.push(makeP(cx, player.y+8,'tear'));
+  if(boss.active && !boss.defeated && boss.inv<=0 && Math.abs((boss.x+boss.w/2)-cx)<R){ boss.hp--; boss.inv=0.4; if(boss.hp<=0){ boss.defeated=true; addFloat('JORDAN TAPPED OUT!', boss.x, boss.y-20, P.ui, 12); } }
+  anxT = 9+Math.random()*5;
+}
+function fartCloud(){
+  projectiles.push({ x:boss.x+(boss.dir<0?-4:boss.w+4), y:boss.y+18, vx:boss.dir*38, vy:-10, rot:0, type:'fart', owner:'enemy', life:0 });
+}
+function allItems(){ return items[0].got && items[1].got && items[2].got; }
+function emmaEntities(dt){
+  // countdown clock
+  clockT -= dt;
+  if(clockT<=0 && STATE==='PLAY'){ clockT=0; emmaLoseReason='late'; onLose(); return; }
+  // random anxiety nova
+  anxT-=dt; if(anxT<=0) emmaAnxiety();
+  if(anxFX>0) anxFX-=dt;
+  updateEthan(dt);
+  // item pickups
+  for(var i=0;i<items.length;i++){ var it=items[i]; if(it.got) continue;
+    if(aabb(player.x,player.y,player.w,player.h, it.x-8,it.y-14,16,20)){ it.got=true; SFX.pickup(); addScore(200,it.x,it.y-10); addFloat('GOT '+it.label+'!', it.x, it.y-18, P.ui, 11); }
+  }
+  // creepy littles
+  for(var j=0;j<enemies.length;j++){ var e=enemies[j]; if(e.dead) continue;
+    if(!e.active && e.x < world.scrollX+VW+40) e.active=true;
+    if(!e.active) continue;
+    e.walkT+=dt;
+    var dir=(player.x<e.x)?-1:1; e.face=dir;
+    e.x += dir*46*dt;
+    if(player.inv<=0 && aabb(player.x,player.y,player.w,player.h, e.x,e.y,e.w,e.h)) hurtPlayer(1, e.x<player.x?1:-1);
+  }
+  // Jordan boss
+  if(!boss.active && player.x>EM_TRIGGER){ boss.active=true; addFloat('JORDAN WANTS TO PLAY!', player.x, player.y-30, P.red); }
+  if(boss.active && !boss.defeated){
+    boss.t+=dt; if(boss.inv>0) boss.inv-=dt;
+    var bdir=(player.x<boss.x)?-1:1; boss.dir=bdir;
+    boss.x += bdir*32*dt;
+    if(boss.x<EM_ARENA_L) boss.x=EM_ARENA_L;
+    if(boss.x>EM_ARENA_R) boss.x=EM_ARENA_R;
+    if(boss.taunt>0) boss.taunt-=dt;
+    boss.tauntCd-=dt;
+    if(boss.tauntCd<=0){ boss.tauntCd=3.0; boss.taunt=1.6; boss.line=char.bossLines[(Math.random()*char.bossLines.length)|0]; SFX.kidLaugh(); }
+    boss.fart-=dt; if(boss.fart<=0){ boss.fart=1.7; fartCloud(); SFX.fart(); }
+    if(player.inv<=0 && aabb(player.x,player.y,player.w,player.h, boss.x,boss.y,boss.w,boss.h)) hurtPlayer(1, boss.x<player.x?1:-1);
+  }
+  // projectiles: snacks (owner player) + farts (owner enemy)
+  for(var p=projectiles.length-1;p>=0;p--){ var pr=projectiles[p];
+    if(pr.type==='fart'){ pr.vx-=pr.vx*Math.min(1,dt*1.5); pr.vy+=-6*dt; }
+    else pr.vy+=520*dt;
+    pr.x+=pr.vx*dt; pr.y+=pr.vy*dt; pr.rot+=dt*9; pr.life=(pr.life||0)+dt;
+    if(pr.owner==='player'){
+      var done=false;
+      for(var q=0;q<enemies.length;q++){ var e2=enemies[q]; if(e2.dead) continue;
+        if(aabb(pr.x-5,pr.y-5,10,10, e2.x,e2.y,e2.w,e2.h)){ e2.dead=true; addScore(100,e2.x,e2.y-8); for(var c=0;c<5;c++) particles.push(makeP(e2.x+7,e2.y+6,'crumb')); done=true; break; }
+      }
+      if(!done && boss.active && !boss.defeated && boss.inv<=0 && aabb(pr.x-5,pr.y-5,10,10, boss.x,boss.y,boss.w,boss.h)){
+        boss.hp--; boss.inv=0.4; shake=5; addScore(150,boss.x+4,boss.y);
+        for(var c2=0;c2<6;c2++) particles.push(makeP(boss.x+10,boss.y+10,'crumb'));
+        done=true; if(boss.hp<=0){ boss.defeated=true; addFloat('JORDAN TAPPED OUT!', boss.x, boss.y-20, P.ui, 12); }
+      }
+      if(done){ projectiles.splice(p,1); continue; }
+      if(pr.y>GROUND+2){ for(var d=0;d<3;d++) particles.push(makeP(pr.x,GROUND-3,'crumb')); projectiles.splice(p,1); continue; }
+    } else {
+      if(player.inv<=0 && aabb(player.x,player.y,player.w,player.h, pr.x-6,pr.y-6,12,12)){ hurtPlayer(1, pr.vx>0?-1:1); projectiles.splice(p,1); continue; }
+      if(pr.life>2.4){ projectiles.splice(p,1); continue; }
+    }
+    if(pr.x<world.scrollX-60||pr.x>world.scrollX+VW+80) projectiles.splice(p,1);
+  }
+  // WIN: all items + Jordan defeated + reach the Kia
+  if(player.x>KIA_X-16 && STATE==='PLAY'){
+    if(allItems() && boss.defeated){ onEmmaWin(); }
+    else if(!emmaNagCd || emmaNagCd<=0){ emmaNagCd=1.4;
+      var miss=[]; if(!items[0].got)miss.push('ID'); if(!items[1].got)miss.push('KEYS'); if(!items[2].got)miss.push('SMOOTHIE');
+      if(!boss.defeated) miss.push('beat JORDAN');
+      addFloat('STILL NEED: '+miss.join(', '), player.x, player.y-22, P.red, 8);
+    }
+  }
+  if(emmaNagCd>0) emmaNagCd-=dt;
+}
+var emmaNagCd=0;
+function onEmmaWin(){ STATE='WIN'; winTimer=0; SFX.win(); mus.on=false;
+  for(var i=0;i<30;i++) particles.push(makeP(player.x+10, player.y+6, 'heart')); }
 
 function onWin(){ STATE='WIN'; winTimer=0; SFX.win(); mus.on=false;
   for(var i=0;i<40;i++) particles.push(makeP(boss.x+13, boss.y+10, 'star')); }
@@ -723,7 +869,195 @@ function drawParticle(p){
   if(p.type==='heart'){ g.fillStyle=P.heart; px(x-2,y-1,2,2,P.heart); px(x+1,y-1,2,2,P.heart); px(x-1,y+1,3,2,P.heart); px(x,y+2,1,1,P.heart); }
   else if(p.type==='star'){ g.fillStyle=(Math.random()<.5?P.ui:P.white); px(x,y,2,2,g.fillStyle); }
   else if(p.type==='bark'){ g.fillStyle=(p.txt&&p.txt.indexOf('14')>=0)?P.ui:P.white; g.font='6px monospace'; g.textAlign='center'; g.fillText(p.txt||'woof', x, y); }
+  else if(p.type==='flower'){ px(x-1,y-1,3,3,'#ff9ecb'); px(x,y,1,1,'#ffe14a'); }
+  else if(p.type==='tear'){ px(x,y,2,3,'#7fd7ff'); }
+  else if(p.type==='crumb'){ px(x,y,2,2,'#c8963c'); }
   else { px(x,y,2,2,P.dirtD); }
+}
+
+/* ---------------- EMMA sprites ---------------- */
+function drawEmma(sx,sy,face,state,anim){
+  var flip=face<0; function X(x){ return flip?(sx+20-x):(sx+x); }
+  var bob=(state==='walk')?(Math.sin(anim)*1.5|0):0; var y=sy+bob;
+  // legs (jeans)
+  px(X(5),y+26,4,8,'#3a4a80'); px(X(11),y+26,4,8,'#3a4a80');
+  px(X(4),y+33,6,2,'#2a3560'); px(X(10),y+33,6,2,'#2a3560');
+  // red polka top + black hem
+  px(X(4),y+13,12,11,'#c0202c');
+  px(X(4),y+22,12,3,'#181818');
+  px(X(6),y+15,1,1,P.white); px(X(10),y+16,1,1,P.white); px(X(13),y+18,1,1,P.white); px(X(7),y+20,1,1,P.white); px(X(12),y+14,1,1,P.white);
+  // arms
+  if(state==='throw'){ px(X(14),y+12,7,4,'#c0202c'); px(X(20),y+11,3,3,P.skin); px(X(0),y+15,4,7,'#c0202c'); }
+  else if(state==='hug'){ px(X(2),y+15,4,7,'#c0202c'); px(X(14),y+15,4,7,'#c0202c'); }
+  else if(state==='cry'){ px(X(4),y+9,4,8,'#c0202c'); px(X(12),y+9,4,8,'#c0202c'); }
+  else { px(X(1),y+15,4,9,'#c0202c'); px(X(15),y+15,4,9,'#c0202c'); px(X(1),y+22,3,2,P.skin); px(X(16),y+22,3,2,P.skin); }
+  // head
+  px(X(6),y+3,8,9,P.skin);
+  // dark hair + top bun
+  px(X(5),y+2,10,3,'#3a2416'); px(X(5),y+4,2,5,'#3a2416'); px(X(13),y+4,2,5,'#3a2416');
+  px(X(8),y-2,5,4,'#3a2416');
+  // sunglasses perched up
+  px(X(5),y+2,10,2,'#111'); px(X(6),y+2,3,1,'#3a5a7a'); px(X(11),y+2,3,1,'#3a5a7a');
+  // big dramatic eyes
+  px(X(7),y+5,2,3,P.white); px(X(11),y+5,2,3,P.white);
+  px(X(8),y+6,1,1,'#111'); px(X(12),y+6,1,1,'#111');
+  if(state==='cry'){ px(X(8),y+8,1,2,'#7fd7ff'); px(X(12),y+8,1,2,'#7fd7ff'); px(X(9),y+9,3,2,'#a03040'); }
+  else px(X(9),y+9,3,1,'#a03040');
+}
+function drawEthan(sx,sy,face){
+  var flip=face<0; function X(x){ return flip?(sx+18-x):(sx+x); }
+  var y=sy;
+  px(X(5),y+24,3,8,'#33447a'); px(X(10),y+24,3,8,'#33447a');
+  px(X(4),y+31,5,2,'#111'); px(X(10),y+31,5,2,'#111');
+  // neon shirt
+  px(X(4),y+13,10,12,'#1a1030');
+  var cc=['#ff3bd0','#3bd0ff','#b0ff3b','#ffd23b'];
+  for(var i=0;i<4;i++){ px(X(5+i*2),y+15+((i%2)*4),1,1,cc[i]); px(X(6+((i+1)%4)),y+18,1,1,cc[(i+2)%4]); }
+  px(X(1),y+14,3,8,'#1a1030'); px(X(14),y+14,3,8,'#1a1030');
+  px(X(1),y+21,3,2,P.skin); px(X(14),y+21,3,2,P.skin);
+  // head + cap
+  px(X(5),y+4,8,8,P.skin);
+  px(X(6),y+10,6,1,'#8a6a4a');
+  px(X(4),y+2,10,3,'#8a3b3b'); px(X(3),y+4,5,2,'#8a3b3b'); px(X(8),y+2,3,2,'#d8c8a0');
+  px(X(7),y+6,1,1,'#111'); px(X(10),y+6,1,1,'#111'); px(X(8),y+8,3,1,'#a03040');
+}
+function drawEthanTrain(){
+  if(!ethan.active) return;
+  var x=ethan.x-world.scrollX, y=GROUND;
+  px(x-16,y-1,34,1,'#555');
+  if(ethan.mode==='arrive'){
+    // little green engine chugging in
+    px(x-10,y-12,20,10,'#2a7a3a'); px(x-10,y-16,8,4,'#256a34');
+    px(x-2,y-9,10,5,'#1a5a2a'); px(x-9,y-14,3,4,'#111');
+    px(x-10,y-3,4,4,'#111'); px(x+4,y-3,4,4,'#111');
+    px(x-8,y-11,3,3,'#bfe0ff');
+  } else {
+    // Ethan hopped out, standing by Emma
+    drawEthan(x-6, GROUND-32, ethan.face);
+    // parked engine behind
+    px(x+16,y-10,14,8,'#2a7a3a'); px(x+16,y-2,3,3,'#111'); px(x+26,y-2,3,3,'#111');
+  }
+}
+function drawCreepy(e){
+  var sx=e.x-world.scrollX, sy=e.y; if(sx<-20||sx>VW+20) return;
+  var flip=e.face<0; function X(x){ return flip?(sx+14-x):(sx+x); }
+  var wob=Math.sin(e.walkT*6+e.wob)*1|0; var y=sy+wob;
+  var body=e.tone?'#9aa0b0':'#b0a89a';
+  px(X(3),y+12,3,4,'#333'); px(X(8),y+12,3,4,'#333');
+  px(X(2),y+5,10,9,body);
+  px(X(0),y+6,2,7,body); px(X(12),y+6,2,7,body);
+  px(X(3),y,8,7,body);
+  px(X(4),y+2,2,2,P.white); px(X(8),y+2,2,2,P.white);
+  px(X(5),y+3,1,1,'#111'); px(X(9),y+3,1,1,'#111');
+  px(X(4),y+5,6,1,'#3a1a1a');
+  px(X(5),y+5,1,1,'#fff'); px(X(7),y+5,1,1,'#fff'); px(X(9),y+5,1,1,'#fff');
+}
+function drawJordan(){
+  var sx=boss.x-world.scrollX, sy=boss.y; var flip=boss.dir<0; function X(x){ return flip?(sx+18-x):(sx+x); }
+  var bob=Math.sin(boss.t*8)*1|0; var y=sy+bob;
+  var flash=boss.inv>0 && (Math.floor(blinkT*20)%2===0);
+  // short legs + sneakers
+  px(X(6),y+18,4,5,P.skin); px(X(10),y+18,4,5,P.skin);
+  px(X(5),y+22,5,2,'#222'); px(X(10),y+22,5,2,'#222');
+  // shorts
+  px(X(4),y+15,12,4,'#111');
+  // black tee w/ white star
+  px(X(4),y+7,12,9, flash?'#fff':'#161616');
+  var sc=flash?'#161616':'#fff';
+  px(X(9),y+9,1,4,sc); px(X(7),y+10,5,1,sc); px(X(8),y+12,1,2,sc); px(X(10),y+12,1,2,sc);
+  // stubby arms out for hugs
+  px(X(0),y+8,4,6,P.skin); px(X(14),y+8,4,6,P.skin);
+  // big kid head
+  px(X(4),y-1,11,9,P.skin);
+  px(X(4),y-3,11,3,'#7a5a3a');
+  px(X(7),y+2,1,1,'#111'); px(X(11),y+2,1,1,'#111');
+  px(X(7),y+5,5,1,'#a03040');
+  if(boss.taunt>0 && !boss.defeated) speechBubble(sx-6,y-16, boss.line);
+  if(!boss.defeated){
+    var bx0=86, bw=VW-8-bx0; px(bx0,7,bw,9,P.black); px(bx0+1,8,bw-2,7,P.hpBg);
+    px(bx0+1,8,(bw-2)*Math.max(0,boss.hp)/boss.maxHp,7,P.hp);
+    g.fillStyle=P.white; g.font='7px monospace'; g.textAlign='center'; g.textBaseline='top'; g.fillText('JORDAN (only 7 for so long)', bx0+bw/2, 17);
+  }
+}
+function drawSnackPr(pr){
+  var x=pr.x-world.scrollX, y=pr.y; g.save(); g.translate(x,y); g.rotate(pr.rot);
+  if(pr.type==='donut'){ px(-4,-4,8,8,'#e6a24a'); px(-1,-1,2,2,'#3a2a1a'); px(-4,-4,2,2,'#ff9ecb'); px(2,2,2,2,'#7fd7ff'); }
+  else if(pr.type==='chips'){ px(-4,-5,8,10,'#e0c030'); px(-3,-4,6,2,'#c02030'); }
+  else if(pr.type==='soda'){ px(-3,-5,6,10,'#c0202c'); px(-3,-5,6,2,'#ddd'); }
+  else if(pr.type==='candy'){ px(-3,-3,6,6,'#e050a0'); px(-6,-1,2,2,'#e050a0'); px(4,-1,2,2,'#e050a0'); }
+  else { px(-4,-4,8,4,'#c8963c'); px(-4,0,8,3,'#a86a2a'); px(-3,-1,6,1,'#3aa03a'); }
+  g.restore();
+}
+function drawFart(pr){
+  var x=pr.x-world.scrollX, y=pr.y; var a=Math.max(0,1-(pr.life||0)/2.4);
+  g.globalAlpha=0.35*a+0.15; g.fillStyle='#9ad07a';
+  px(x-5,y-3,10,7,'#9ad07a'); px(x-3,y-6,7,5,'#a8d888'); px(x+2,y-1,5,5,'#88c060'); g.globalAlpha=1;
+}
+function drawItem(it){
+  if(it.got) return; var x=it.x-world.scrollX; if(x<-20||x>VW+20) return;
+  var y=it.y + Math.sin(performance.now()/300+it.x)*2;
+  px(x-1,y-11,1,1,P.ui); px(x+6,y-9,1,1,P.ui); px(x-6,y-6,1,1,P.ui);
+  if(it.kind==='id'){ px(x-6,y-6,14,10,'#f0f0f0'); px(x-6,y-6,14,3,'#3b6fd8'); px(x-4,y-1,4,4,'#c8a060'); px(x+1,y-1,5,1,'#333'); px(x+1,y+1,5,1,'#333'); }
+  else if(it.kind==='keys'){ px(x-2,y-6,4,4,'#e6c34a'); px(x-1,y-3,1,1,'#7a5a1a'); px(x-1,y-2,2,8,'#e6c34a'); px(x-3,y+2,2,1,'#e6c34a'); px(x-3,y+4,2,1,'#e6c34a'); }
+  else { px(x-4,y-8,8,12,'#ff6fb0'); px(x-4,y-8,8,2,'#d84f90'); px(x-1,y-12,2,5,'#7ac0e0'); px(x-3,y-6,6,1,'#fff'); }
+  g.fillStyle=P.ui; g.font='5px monospace'; g.textAlign='center'; g.textBaseline='bottom'; g.fillText(it.label, x, y-12);
+}
+function drawKia(){
+  var x=KIA_X-world.scrollX; if(x<-60||x>VW+30) return; var y=GROUND;
+  px(x-2,y-20,40,14,'#d21f26');
+  px(x+2,y-30,30,12,'#d21f26');
+  px(x+4,y-28,24,9,'#bfe0ff'); px(x+16,y-28,2,9,'#d21f26');
+  px(x-2,y-8,40,4,'#a01820');
+  px(x+2,y-6,8,8,'#111'); px(x+28,y-6,8,8,'#111');
+  px(x+4,y-4,4,4,'#555'); px(x+30,y-4,4,4,'#555');
+  px(x+36,y-16,3,3,'#ffe'); px(x-3,y-15,2,3,'#c33');
+  g.fillStyle=P.ui; g.font='5px monospace'; g.textAlign='center'; g.textBaseline='bottom'; g.fillText('KIA SOUL', x+18, y-31);
+}
+/* Emma interior background */
+function bandRect(x0,x1,col){ var a=x0-world.scrollX, b=x1-world.scrollX; a=Math.max(0,a); b=Math.min(VW,b); if(b>a){ g.fillStyle=col; g.fillRect(a,0,b-a,GROUND); } }
+function drawEmmaBg(){
+  g.fillStyle='#d8c6e6'; g.fillRect(0,0,VW,GROUND);
+  bandRect(0,1000,'#d8c6e6'); bandRect(1000,2100,'#e6d8b0'); bandRect(2100,2600,'#b8bcc4');
+  px(0,GROUND-2,VW,2,'#a89ab8');
+  px(0,GROUND,VW,VH-GROUND,'#a06a3a'); px(0,GROUND,VW,3,'#b88a52');
+  for(var x=(-world.scrollX%20+20)%20; x<VW; x+=20) px(x,GROUND+4,10,1,'#7a4a1e');
+  // garage doorway to daylight
+  var gx=2150-world.scrollX; if(gx>-130&&gx<VW){ g.fillStyle='#bfe6ff'; g.fillRect(gx,0,130,GROUND); px(gx-4,0,4,GROUND,'#8a9098'); px(gx+130,0,4,GROUND,'#8a9098'); }
+  // bedroom props
+  var bed=800-world.scrollX; if(bed>-60&&bed<VW){ px(bed,GROUND-16,52,16,'#8a5a8a'); px(bed,GROUND-22,14,8,'#c0a0c0'); px(bed+2,GROUND-20,10,5,'#fff'); px(bed,GROUND-18,52,3,'#6a3a6a'); }
+  var door=980-world.scrollX; if(door>-30&&door<VW){ px(door,GROUND-40,22,40,'#7a4a1e'); px(door+2,GROUND-38,18,38,'#8a5a2a'); px(door+16,GROUND-22,2,2,'#e6c34a'); }
+  // clothes piles (the mess)
+  var piles=[130,250,360,470,610,720,880];
+  for(var i=0;i<piles.length;i++){ var sx=piles[i]-world.scrollX; if(sx>-30&&sx<VW+10){ var cols=['#e05050','#50a0e0','#e0c050','#a050e0','#50c070']; for(var j=0;j<5;j++) px(sx-8+j*3, GROUND-4-(j%2)*2,6,4,cols[j%cols.length]); px(sx-6,GROUND-2,16,2,'#c0a0c0'); } }
+  // house props
+  var couch=1450-world.scrollX; if(couch>-60&&couch<VW){ px(couch,GROUND-14,44,14,'#4a6a8a'); px(couch,GROUND-20,44,6,'#5a7a9a'); }
+  var tv=1620-world.scrollX; if(tv>-40&&tv<VW){ px(tv,GROUND-40,34,22,'#111'); px(tv+2,GROUND-38,30,18,'#2a4a6a'); px(tv+8,GROUND-18,18,4,'#333'); }
+  var fr=1990-world.scrollX; if(fr>-30&&fr<VW){ px(fr,GROUND-46,22,46,'#dfe4ea'); px(fr,GROUND-24,22,2,'#b0b6bc'); px(fr+17,GROUND-40,2,8,'#8a9098'); px(fr+17,GROUND-20,2,8,'#8a9098'); }
+  drawKia();
+}
+function drawClock(){
+  var cx=VW/2, cy=20, r=13, frac=clockMax>0?clockT/clockMax:0, low=clockT<20;
+  g.fillStyle=(low && Math.floor(blinkT*4)%2)?'#ffdcdc':'#fff';
+  g.beginPath(); g.arc(cx,cy,r,0,Math.PI*2); g.fill();
+  g.lineWidth=2; g.strokeStyle='#222'; g.stroke();
+  for(var i=0;i<12;i++){ var a=i/12*Math.PI*2; px(cx+Math.cos(a)*(r-2)-0.5, cy+Math.sin(a)*(r-2)-0.5,1,1,'#333'); }
+  var ang=-Math.PI/2+(1-frac)*Math.PI*2*4;
+  g.strokeStyle=low?'#c00':'#222'; g.lineWidth=2;
+  g.beginPath(); g.moveTo(cx,cy); g.lineTo(cx+Math.cos(ang)*(r-3), cy+Math.sin(ang)*(r-3)); g.stroke();
+  var ha=-Math.PI/2+(1-frac)*Math.PI*2;
+  g.beginPath(); g.moveTo(cx,cy); g.lineTo(cx+Math.cos(ha)*(r-6), cy+Math.sin(ha)*(r-6)); g.stroke();
+  px(cx-1,cy-1,2,2,'#222');
+  var s=Math.max(0,Math.ceil(clockT)), mm=Math.floor(s/60), ss=s%60;
+  g.fillStyle=low?'#ffb0b0':'#fff'; g.font='7px monospace'; g.textAlign='center'; g.textBaseline='top';
+  g.fillText('LATE IN '+mm+':'+(ss<10?'0':'')+ss, cx, cy+r+2);
+}
+function emmaHUD(){
+  var names=['ID','KEYS','SMTH'];
+  for(var i=0;i<3;i++){ var it=items[i], x=8+i*46, y=18;
+    px(x,y+1,5,5, it.got?'#2ecc40':'#333'); if(!it.got) px(x+1,y+2,3,3,'#111');
+    g.fillStyle=it.got?'#2ecc40':'#8a90a0'; g.font='6px monospace'; g.textAlign='left'; g.textBaseline='top'; g.fillText(names[i], x+7, y);
+  }
+  drawClock();
 }
 
 /* ---------------- backgrounds ---------------- */
@@ -795,10 +1129,16 @@ function drawHUD(){
   if(combo>2){ g.fillStyle=P.ui; g.textAlign='center'; g.fillText('COMBO x'+(1+Math.floor(combo/3)), VW/2, boss.active?28:8); }
   // attack cooldown pips
   g.textAlign='left';
-  drawCd(8, VH-26, A1_CD, 0.85, '🐕', P.parkaHi);
-  drawCd(48, VH-26, A2_CD, 2.0, '💋', P.heart);
-  // progress to boss
-  if(!boss.active){
+  if(char.id==='emma'){
+    drawCd(8, VH-26, A1_CD, 0.42, '🍩', P.ui);
+    drawCd(48, VH-26, A2_CD, 2.6, '🚂', P.heart);
+    emmaHUD();
+  } else {
+    drawCd(8, VH-26, A1_CD, 0.85, '🐕', P.parkaHi);
+    drawCd(48, VH-26, A2_CD, 2.0, '💋', P.heart);
+  }
+  // progress to boss (Ronda only — Emma uses the countdown clock)
+  if(char.id!=='emma' && !boss.active){
     var pw=80, pxp=VW/2-pw/2, prog=Math.min(1,(player.x)/BOSS_TRIGGER);
     px(pxp-1,VH-23,pw+2,5,P.black); px(pxp,VH-22,pw,3,'#333'); px(pxp,VH-22,pw*prog,3,P.ui);
     px(pxp+pw-1,VH-25,2,7,P.barn); // barn/flag at end
@@ -807,7 +1147,10 @@ function drawHUD(){
   if(isDesktop){
     g.globalAlpha=0.6; px(0,VH-10,VW,10,'#000'); g.globalAlpha=1;
     g.fillStyle='#fff'; g.font='6px monospace'; g.textAlign='center'; g.textBaseline='bottom';
-    g.fillText('◄ ► MOVE    SPACE JUMP    J = SOOKIE    K = LOVE    P PAUSE    M MUTE', VW/2, VH-2);
+    var legend = char.id==='emma'
+      ? '◄ ► MOVE    SPACE JUMP    J = SNACK    K = ETHAN    P PAUSE    M MUTE'
+      : '◄ ► MOVE    SPACE JUMP    J = SOOKIE    K = LOVE    P PAUSE    M MUTE';
+    g.fillText(legend, VW/2, VH-2);
   }
 }
 function drawCd(x,y,cd,max,icon,col){
@@ -898,12 +1241,16 @@ function drawSelect(){
       wrapText(r.tagline, x+cw/2, y+96, cw-12, '#778');
     } else {
       // portrait
-      drawRonda(x+cw/2-10, y+26, 1, 'idle', performance.now()/300);
-      drawDog(x+cw/2+8, y+44, -1,false);
+      if(r.id==='emma'){
+        drawEmma(x+cw/2-10, y+22, 1, 'idle', performance.now()/300);
+      } else {
+        drawRonda(x+cw/2-10, y+26, 1, 'idle', performance.now()/300);
+        drawDog(x+cw/2+8, y+44, -1,false);
+      }
       g.fillStyle=P.white; g.font='bold 11px monospace'; g.fillText(r.name, x+cw/2, y+72);
       if(r.mode){ g.fillStyle=P.red; g.font='bold 7px monospace'; g.fillText(r.mode, x+cw/2, y+84); }
-      g.fillStyle=P.parkaHi; g.font='6px monospace'; g.fillText('🐕 '+r.a1, x+cw/2, y+96);
-      g.fillStyle=P.heart; g.fillText('💋 '+r.a2, x+cw/2, y+106);
+      g.fillStyle=P.parkaHi; g.font='6px monospace'; g.fillText((r.i1||'🐕')+' '+r.a1, x+cw/2, y+96);
+      g.fillStyle=P.heart; g.fillText((r.i2||'💋')+' '+r.a2, x+cw/2, y+106);
       wrapText(r.tagline, x+cw/2, y+120, cw-10, '#cde');
     }
   }
@@ -917,8 +1264,21 @@ function wrapText(txt,cx,y,maxw,col){
   g.fillText(line,cx,yy);
 }
 function drawWin(){
-  drawSky(); drawGround();
   winTimer+=1/60;
+  if(char.id==='emma'){
+    drawEmmaBg();
+    particles.forEach(drawParticle);
+    drawEmma(KIA_X-world.scrollX-26, GROUND-34, 1, 'hug', performance.now()/300);
+    g.textAlign='center'; g.textBaseline='top';
+    var t0=performance.now()/1000;
+    g.font='bold 18px monospace'; g.fillStyle=P.black; g.fillText('CLOCKED IN!', VW/2+2, 24); g.fillStyle=P.ui; g.fillText('CLOCKED IN!', VW/2, 22);
+    g.font='7px monospace'; g.fillStyle=P.white; g.fillText('Emma grabbed her stuff and survived Jordan.', VW/2, 50);
+    g.fillStyle=P.ui; g.fillText('She peels out in the red Kia Soul — on time!', VW/2, 62);
+    g.fillStyle=P.ui; g.font='bold 9px monospace'; g.fillText('FINAL SCORE: '+score, VW/2, 78);
+    if(Math.floor(t0*2)%2===0){ g.fillStyle=P.white; g.font='7px monospace'; g.fillText('TAP TO PLAY AGAIN', VW/2, VH-24); }
+    return;
+  }
+  drawSky(); drawGround();
   drawTodd(); // shows defeated todd sitting
   drawRonda(player.x-world.scrollX, player.y, player.face, 'hug', performance.now()/300);
   if(dog.active) drawDog(dog.x-world.scrollX, dog.y, dog.face, dog.mode==='kiss');
@@ -937,6 +1297,18 @@ function drawWin(){
   if(Math.floor(t*2)%2===0){ g.fillStyle=P.white; g.font='7px monospace'; g.fillText('TAP TO PLAY AGAIN', VW/2, VH-24); }
 }
 function drawLose(){
+  if(char.id==='emma'){
+    drawEmmaBg();
+    g.textAlign='center'; g.textBaseline='top';
+    var late = emmaLoseReason==='late';
+    g.font='bold 16px monospace'; g.fillStyle=P.black; g.fillText(late?'LATE FOR WORK!':'MELTDOWN!', VW/2+2, 40);
+    g.fillStyle=P.red; g.fillText(late?'LATE FOR WORK!':'MELTDOWN!', VW/2, 38);
+    g.font='7px monospace'; g.fillStyle=P.white;
+    g.fillText(late?'The clock ran out. The Mouse does not approve.':'Jordan and the little creeps got the best of her.', VW/2, 66);
+    g.fillStyle=P.ui; g.font='bold 9px monospace'; g.fillText('SCORE: '+score, VW/2, 82);
+    if(Math.floor(performance.now()/500)%2===0){ g.fillStyle=P.white; g.font='7px monospace'; g.fillText('TAP TO TRY AGAIN', VW/2, VH-24); }
+    return;
+  }
   drawSky(); drawGround();
   g.textAlign='center'; g.textBaseline='top';
   g.font='bold 16px monospace'; g.fillStyle=P.black; g.fillText('CORNERED!', VW/2+2, 40);
@@ -951,20 +1323,26 @@ function drawLose(){
 function drawPlay(){
   var sh = shake>0? {x:(Math.random()*2-1)*shake, y:(Math.random()*2-1)*shake} : {x:0,y:0};
   g.save(); g.translate(sh.x|0, sh.y|0);
-  drawSky(); drawGround();
-  // enemies
-  for(var i=0;i<enemies.length;i++){ if(!enemies[i].dead) drawEnemy(enemies[i]); }
-  // boss
-  if(boss.active && !boss.defeated) drawTodd();
-  // projectiles
-  projectiles.forEach(drawProjectile);
-  // dog (behind/around player)
-  if(dog.active && dog.mode!=='kiss') drawDog(dog.x-world.scrollX, dog.y, dog.face, false);
-  // player
-  var pInv = player.inv>0 && Math.floor(blinkT*20)%2===0;
-  if(!pInv) drawRonda(player.x-world.scrollX, player.y, player.face, player.state, player.anim);
-  // dog in arms drawn in front
-  if(dog.active && dog.mode==='kiss') drawDog(dog.x-world.scrollX, dog.y, dog.face, true);
+  if(char.id==='emma'){
+    drawEmmaBg();
+    for(var ii=0;ii<items.length;ii++) drawItem(items[ii]);
+    for(var i=0;i<enemies.length;i++){ if(!enemies[i].dead) drawCreepy(enemies[i]); }
+    if(boss.active) drawJordan();
+    projectiles.forEach(function(pr){ if(pr.type==='fart') drawFart(pr); else drawSnackPr(pr); });
+    drawEthanTrain();
+    var pInvE = player.inv>0 && Math.floor(blinkT*20)%2===0;
+    if(!pInvE) drawEmma(player.x-world.scrollX, player.y, player.face, player.state, player.anim);
+    if(anxFX>0){ g.globalAlpha=anxFX*0.25; g.fillStyle='#7fd7ff'; g.fillRect(0,0,VW,GROUND); g.globalAlpha=1; }
+  } else {
+    drawSky(); drawGround();
+    for(var i=0;i<enemies.length;i++){ if(!enemies[i].dead) drawEnemy(enemies[i]); }
+    if(boss.active && !boss.defeated) drawTodd();
+    projectiles.forEach(drawProjectile);
+    if(dog.active && dog.mode!=='kiss') drawDog(dog.x-world.scrollX, dog.y, dog.face, false);
+    var pInv = player.inv>0 && Math.floor(blinkT*20)%2===0;
+    if(!pInv) drawRonda(player.x-world.scrollX, player.y, player.face, player.state, player.anim);
+    if(dog.active && dog.mode==='kiss') drawDog(dog.x-world.scrollX, dog.y, dog.face, true);
+  }
   // particles + floats
   particles.forEach(drawParticle);
   g.textAlign='center'; g.textBaseline='bottom';
@@ -980,8 +1358,8 @@ function drawPlay(){
     a=Math.max(0,Math.min(1,a));
     g.globalAlpha=a*0.85; g.fillStyle='#000'; g.fillRect(0,VH/2-24,VW,48); g.globalAlpha=a;
     g.textAlign='center'; g.textBaseline='middle';
-    g.fillStyle=P.red; g.font='bold 15px monospace'; g.fillText("RONDA'S RECKONING", VW/2, VH/2-6);
-    g.fillStyle=P.white; g.font='7px monospace'; g.fillText('Ronda & Sookie vs. everyone', VW/2, VH/2+10);
+    g.fillStyle=P.red; g.font='bold 15px monospace'; g.fillText(char.mode||"", VW/2, VH/2-6);
+    g.fillStyle=P.white; g.font='7px monospace'; g.fillText(char.sub||'', VW/2, VH/2+10);
     g.globalAlpha=1;
   }
   if(paused){ g.fillStyle='rgba(0,0,0,.55)'; g.fillRect(0,0,VW,VH); g.fillStyle=P.white; g.textAlign='center'; g.textBaseline='middle'; g.font='bold 14px monospace'; g.fillText('PAUSED', VW/2, VH/2); }
@@ -1008,10 +1386,16 @@ function handleMenus(){
   }
   jumpEdge=a1Edge=a2Edge=false; anyEdge=false; pointer.hit=false;
 }
+function setControlLabels(c){
+  var b1=document.getElementById('bA1'), b2=document.getElementById('bA2');
+  if(!b1||!b2) return;
+  if(c.id==='emma'){ b1.innerHTML='🍩<span class="cap">SNACK</span>'; b2.innerHTML='🚂<span class="cap">ETHAN</span>'; }
+  else { b1.innerHTML='🐕<span class="cap">SOOKIE</span>'; b2.innerHTML='💋<span class="cap">LOVE</span>'; }
+}
 function tryStart(){
   var r=ROSTER[selIndex];
   if(r.locked){ addFloat && SFX.hit(); return; }
-  char=r; resetGame(); STATE='PLAY'; SFX.select();
+  char=r; setControlLabels(r); resetGame(); STATE='PLAY'; SFX.select();
 }
 var menuCd=0, winCd=0;
 
