@@ -61,7 +61,7 @@
    Single-file, canvas 2D, procedural pixel art + chiptune.
    Deploy: this is index.html at repo root (GitHub Pages).
    ============================================================ */
-var BUILD = "1786067180"; // replaced at deploy time (unix ts)
+var BUILD = "1786069230"; // replaced at deploy time (unix ts)
 
 /* -------------------- Self-updater (matches your deploy flow) -------------------- */
 (function(){
@@ -135,6 +135,22 @@ function resize(){
   ctx.imageSmoothingEnabled=false;
 }
 window.addEventListener('resize', resize); resize();
+
+/* --- crisp text: queue UI text and draw it on the hi-res output layer,
+       instead of rasterizing tiny fonts on the low-res buffer (which magnifies fuzz) --- */
+var textQ=[];
+function gtext(txt,x,y){ textQ.push({t:txt,x:x,y:y,font:g.font,fill:g.fillStyle,align:g.textAlign||'left',base:g.textBaseline||'alphabetic',alpha:g.globalAlpha}); }
+function scaleFont(f){ return String(f).replace(/(\d+(?:\.\d+)?)px/, function(m,n){ return Math.max(8,Math.round(parseFloat(n)*scale))+'px'; }); }
+function flushText(){
+  if(!textQ.length) return;
+  ctx.save(); ctx.imageSmoothingEnabled=true;
+  for(var i=0;i<textQ.length;i++){ var e=textQ[i];
+    ctx.font=scaleFont(e.font); ctx.fillStyle=e.fill; ctx.textAlign=e.align; ctx.textBaseline=e.base;
+    ctx.globalAlpha=(e.alpha==null?1:e.alpha);
+    ctx.fillText(e.t, Math.round(e.x*scale), Math.round(e.y*scale));
+  }
+  ctx.globalAlpha=1; ctx.restore(); textQ.length=0;
+}
 
 /* ============================================================
    PALETTE  (NES-ish)
@@ -814,7 +830,7 @@ function speechBubble(x,y,txt){
   x=Math.max(2,Math.min(VW-w-2,x));
   px(x,y,w,11,P.white); px(x+4,y+11,4,3,P.white);
   g.fillStyle=P.black; g.textAlign='left'; g.textBaseline='top';
-  g.fillText(txt, x+3, y+3);
+  gtext(txt, x+3, y+3);
 }
 function drawTodd(){
   var sx=boss.x-world.scrollX, sy=boss.y; var flip=boss.dir<0; function X(x){ return flip?(sx+26-x):(sx+x); }
@@ -851,7 +867,7 @@ function drawTodd(){
     px(bx0,7,bw,9,P.black); px(bx0+1,8,bw-2,7,P.hpBg);
     px(bx0+1,8,(bw-2)*Math.max(0,boss.hp)/boss.maxHp,7,P.hp);
     g.fillStyle=P.white; g.font='7px monospace'; g.textAlign='center'; g.textBaseline='top';
-    g.fillText(char.bossName, bx0+bw/2, 17);
+    gtext(char.bossName, bx0+bw/2, 17);
   }
 }
 function drawProjectile(pr){
@@ -868,7 +884,7 @@ function drawParticle(p){
   var x=p.x-world.scrollX, y=p.y, a=1-p.t/p.life;
   if(p.type==='heart'){ g.fillStyle=P.heart; px(x-2,y-1,2,2,P.heart); px(x+1,y-1,2,2,P.heart); px(x-1,y+1,3,2,P.heart); px(x,y+2,1,1,P.heart); }
   else if(p.type==='star'){ g.fillStyle=(Math.random()<.5?P.ui:P.white); px(x,y,2,2,g.fillStyle); }
-  else if(p.type==='bark'){ g.fillStyle=(p.txt&&p.txt.indexOf('14')>=0)?P.ui:P.white; g.font='6px monospace'; g.textAlign='center'; g.fillText(p.txt||'woof', x, y); }
+  else if(p.type==='bark'){ g.fillStyle=(p.txt&&p.txt.indexOf('14')>=0)?P.ui:P.white; g.font='6px monospace'; g.textAlign='center'; gtext(p.txt||'woof', x, y); }
   else if(p.type==='flower'){ px(x-1,y-1,3,3,'#ff9ecb'); px(x,y,1,1,'#ffe14a'); }
   else if(p.type==='tear'){ px(x,y,2,3,'#7fd7ff'); }
   else if(p.type==='crumb'){ px(x,y,2,2,'#c8963c'); }
@@ -976,7 +992,7 @@ function drawJordan(){
   if(!boss.defeated){
     var bx0=86, bw=VW-8-bx0; px(bx0,7,bw,9,P.black); px(bx0+1,8,bw-2,7,P.hpBg);
     px(bx0+1,8,(bw-2)*Math.max(0,boss.hp)/boss.maxHp,7,P.hp);
-    g.fillStyle=P.white; g.font='7px monospace'; g.textAlign='center'; g.textBaseline='top'; g.fillText('JORDAN (only 7 for so long)', bx0+bw/2, 17);
+    g.fillStyle=P.white; g.font='7px monospace'; g.textAlign='center'; g.textBaseline='top'; gtext('JORDAN (only 7 for so long)', bx0+bw/2, 17);
   }
 }
 function drawSnackPr(pr){
@@ -1000,7 +1016,7 @@ function drawItem(it){
   if(it.kind==='id'){ px(x-6,y-6,14,10,'#f0f0f0'); px(x-6,y-6,14,3,'#3b6fd8'); px(x-4,y-1,4,4,'#c8a060'); px(x+1,y-1,5,1,'#333'); px(x+1,y+1,5,1,'#333'); }
   else if(it.kind==='keys'){ px(x-2,y-6,4,4,'#e6c34a'); px(x-1,y-3,1,1,'#7a5a1a'); px(x-1,y-2,2,8,'#e6c34a'); px(x-3,y+2,2,1,'#e6c34a'); px(x-3,y+4,2,1,'#e6c34a'); }
   else { px(x-4,y-8,8,12,'#ff6fb0'); px(x-4,y-8,8,2,'#d84f90'); px(x-1,y-12,2,5,'#7ac0e0'); px(x-3,y-6,6,1,'#fff'); }
-  g.fillStyle=P.ui; g.font='5px monospace'; g.textAlign='center'; g.textBaseline='bottom'; g.fillText(it.label, x, y-12);
+  g.fillStyle=P.ui; g.font='5px monospace'; g.textAlign='center'; g.textBaseline='bottom'; gtext(it.label, x, y-12);
 }
 function drawKia(){
   var x=KIA_X-world.scrollX; if(x<-60||x>VW+30) return; var y=GROUND;
@@ -1011,7 +1027,7 @@ function drawKia(){
   px(x+2,y-6,8,8,'#111'); px(x+28,y-6,8,8,'#111');
   px(x+4,y-4,4,4,'#555'); px(x+30,y-4,4,4,'#555');
   px(x+36,y-16,3,3,'#ffe'); px(x-3,y-15,2,3,'#c33');
-  g.fillStyle=P.ui; g.font='5px monospace'; g.textAlign='center'; g.textBaseline='bottom'; g.fillText('KIA SOUL', x+18, y-31);
+  g.fillStyle=P.ui; g.font='5px monospace'; g.textAlign='center'; g.textBaseline='bottom'; gtext('KIA SOUL', x+18, y-31);
 }
 /* Emma interior background */
 function bandRect(x0,x1,col){ var a=x0-world.scrollX, b=x1-world.scrollX; a=Math.max(0,a); b=Math.min(VW,b); if(b>a){ g.fillStyle=col; g.fillRect(a,0,b-a,GROUND); } }
@@ -1049,13 +1065,13 @@ function drawClock(){
   px(cx-1,cy-1,2,2,'#222');
   var s=Math.max(0,Math.ceil(clockT)), mm=Math.floor(s/60), ss=s%60;
   g.fillStyle=low?'#ffb0b0':'#fff'; g.font='7px monospace'; g.textAlign='center'; g.textBaseline='top';
-  g.fillText('LATE IN '+mm+':'+(ss<10?'0':'')+ss, cx, cy+r+2);
+  gtext('LATE IN '+mm+':'+(ss<10?'0':'')+ss, cx, cy+r+2);
 }
 function emmaHUD(){
   var names=['ID','KEYS','SMTH'];
   for(var i=0;i<3;i++){ var it=items[i], x=8+i*46, y=18;
     px(x,y+1,5,5, it.got?'#2ecc40':'#333'); if(!it.got) px(x+1,y+2,3,3,'#111');
-    g.fillStyle=it.got?'#2ecc40':'#8a90a0'; g.font='6px monospace'; g.textAlign='left'; g.textBaseline='top'; g.fillText(names[i], x+7, y);
+    g.fillStyle=it.got?'#2ecc40':'#8a90a0'; g.font='6px monospace'; g.textAlign='left'; g.textBaseline='top'; gtext(names[i], x+7, y);
   }
   drawClock();
 }
@@ -1123,10 +1139,10 @@ function drawHUD(){
   }
   // score
   g.fillStyle=P.white; g.font='8px monospace'; g.textAlign='right'; g.textBaseline='top';
-  if(!boss.active) g.fillText('SCORE '+score, VW-6, 8);
-  else g.fillText('SCORE '+score, VW-6, 28);
+  if(!boss.active) gtext('SCORE '+score, VW-6, 8);
+  else gtext('SCORE '+score, VW-6, 28);
   // combo
-  if(combo>2){ g.fillStyle=P.ui; g.textAlign='center'; g.fillText('COMBO x'+(1+Math.floor(combo/3)), VW/2, boss.active?28:8); }
+  if(combo>2){ g.fillStyle=P.ui; g.textAlign='center'; gtext('COMBO x'+(1+Math.floor(combo/3)), VW/2, boss.active?28:8); }
   // attack cooldown pips
   g.textAlign='left';
   if(char.id==='emma'){
@@ -1150,13 +1166,13 @@ function drawHUD(){
     var legend = char.id==='emma'
       ? '◄ ► MOVE    SPACE JUMP    J = SNACK    K = ETHAN    P PAUSE    M MUTE'
       : '◄ ► MOVE    SPACE JUMP    J = SOOKIE    K = LOVE    P PAUSE    M MUTE';
-    g.fillText(legend, VW/2, VH-2);
+    gtext(legend, VW/2, VH-2);
   }
 }
 function drawCd(x,y,cd,max,icon,col){
   var r=cd>0?(cd/max):0;
   g.font='9px monospace'; g.textAlign='left'; g.textBaseline='top';
-  g.globalAlpha = cd>0?0.5:1; g.fillText(icon, x, y); g.globalAlpha=1;
+  g.globalAlpha = cd>0?0.5:1; gtext(icon, x, y); g.globalAlpha=1;
   px(x+14,y+2,18,4,P.black); px(x+15,y+3,16,2,'#222'); px(x+15,y+3,16*(1-r),2,col);
 }
 
@@ -1175,18 +1191,18 @@ function drawTitle(){
   g.font='bold 30px monospace';
   var full='dysFUNction';
   // shadow
-  g.fillStyle='#1a1020'; g.fillText(full, VW/2+2, yy+2);
+  g.fillStyle='#1a1020'; gtext(full, VW/2+2, yy+2);
   // draw in pieces to color FUN
   var wFull=g.measureText(full).width, x0=VW/2-wFull/2;
   g.textAlign='left';
   var wDys=g.measureText('dys').width, wFun=g.measureText('FUN').width;
-  g.fillStyle='#f0e0ff'; g.fillText('dys', x0, yy);
-  g.fillStyle=P.ui;     g.fillText('FUN', x0+wDys, yy);
-  g.fillStyle='#f0e0ff'; g.fillText('ction', x0+wDys+wFun, yy);
+  g.fillStyle='#f0e0ff'; gtext('dys', x0, yy);
+  g.fillStyle=P.ui;     gtext('FUN', x0+wDys, yy);
+  g.fillStyle='#f0e0ff'; gtext('ction', x0+wDys+wFun, yy);
   g.textAlign='center';
-  g.font='7px monospace'; g.fillStyle='#ffe0c0'; g.fillText('a family tree, gently on fire', VW/2, yy+30);
+  g.font='7px monospace'; g.fillStyle='#ffe0c0'; gtext('a family tree, gently on fire', VW/2, yy+30);
   // prompt
-  if(Math.floor(t*2)%2===0){ g.fillStyle=P.white; g.font='8px monospace'; g.fillText('TAP / PRESS ANY KEY', VW/2, VH-20); }
+  if(Math.floor(t*2)%2===0){ g.fillStyle=P.white; g.font='8px monospace'; gtext('TAP / PRESS ANY KEY', VW/2, VH-20); }
 }
 function drawBrokenTree(cx, groundY){
   var top=groundY-150;
@@ -1226,7 +1242,7 @@ var selBtns=[];
 function drawSelect(){
   drawSky(); drawGround();
   g.textAlign='center'; g.textBaseline='top';
-  g.font='bold 12px monospace'; g.fillStyle=P.ui; g.fillText('dysFUNction — PICK YOUR STORY', VW/2, 12);
+  g.font='bold 12px monospace'; g.fillStyle=P.ui; gtext('dysFUNction — PICK YOUR STORY', VW/2, 12);
   selBtns=[];
   var n=ROSTER.length, cw=104, gap=10, totalW=n*cw+(n-1)*gap, startX=VW/2-totalW/2;
   for(var i=0;i<n;i++){
@@ -1236,8 +1252,8 @@ function drawSelect(){
     px(x,y,cw,h, on?'#2a3a5a':'#1a2338'); 
     g.strokeStyle=on?P.ui:'#456'; g.lineWidth=on?3:1; g.strokeRect(x+1,y+1,cw-2,h-2);
     if(r.locked){
-      g.fillStyle='#556'; g.font='bold 30px monospace'; g.fillText('?', x+cw/2, y+40);
-      g.fillStyle='#889'; g.font='7px monospace'; g.fillText('LOCKED', x+cw/2, y+80);
+      g.fillStyle='#556'; g.font='bold 30px monospace'; gtext('?', x+cw/2, y+40);
+      g.fillStyle='#889'; g.font='7px monospace'; gtext('LOCKED', x+cw/2, y+80);
       wrapText(r.tagline, x+cw/2, y+96, cw-12, '#778');
     } else {
       // portrait
@@ -1247,21 +1263,21 @@ function drawSelect(){
         drawRonda(x+cw/2-10, y+26, 1, 'idle', performance.now()/300);
         drawDog(x+cw/2+8, y+44, -1,false);
       }
-      g.fillStyle=P.white; g.font='bold 11px monospace'; g.fillText(r.name, x+cw/2, y+72);
-      if(r.mode){ g.fillStyle=P.red; g.font='bold 7px monospace'; g.fillText(r.mode, x+cw/2, y+84); }
-      g.fillStyle=P.parkaHi; g.font='6px monospace'; g.fillText((r.i1||'🐕')+' '+r.a1, x+cw/2, y+96);
-      g.fillStyle=P.heart; g.fillText((r.i2||'💋')+' '+r.a2, x+cw/2, y+106);
+      g.fillStyle=P.white; g.font='bold 11px monospace'; gtext(r.name, x+cw/2, y+72);
+      if(r.mode){ g.fillStyle=P.red; g.font='bold 7px monospace'; gtext(r.mode, x+cw/2, y+84); }
+      g.fillStyle=P.parkaHi; g.font='6px monospace'; gtext((r.i1||'🐕')+' '+r.a1, x+cw/2, y+96);
+      g.fillStyle=P.heart; gtext((r.i2||'💋')+' '+r.a2, x+cw/2, y+106);
       wrapText(r.tagline, x+cw/2, y+120, cw-10, '#cde');
     }
   }
   g.fillStyle=P.white; g.font='8px monospace';
-  g.fillText('TAP A CHARACTER  •  ← → then JUMP to pick', VW/2, VH-14);
+  gtext('TAP A CHARACTER  •  ← → then JUMP to pick', VW/2, VH-14);
 }
 function wrapText(txt,cx,y,maxw,col){
   g.fillStyle=col; g.font='6px monospace'; g.textAlign='center';
   var words=txt.split(' '), line='', yy=y;
-  for(var i=0;i<words.length;i++){ var test=line+words[i]+' '; if(g.measureText(test).width>maxw){ g.fillText(line,cx,yy); line=words[i]+' '; yy+=8; } else line=test; }
-  g.fillText(line,cx,yy);
+  for(var i=0;i<words.length;i++){ var test=line+words[i]+' '; if(g.measureText(test).width>maxw){ gtext(line,cx,yy); line=words[i]+' '; yy+=8; } else line=test; }
+  gtext(line,cx,yy);
 }
 function drawWin(){
   winTimer+=1/60;
@@ -1271,11 +1287,11 @@ function drawWin(){
     drawEmma(KIA_X-world.scrollX-26, GROUND-34, 1, 'hug', performance.now()/300);
     g.textAlign='center'; g.textBaseline='top';
     var t0=performance.now()/1000;
-    g.font='bold 18px monospace'; g.fillStyle=P.black; g.fillText('CLOCKED IN!', VW/2+2, 24); g.fillStyle=P.ui; g.fillText('CLOCKED IN!', VW/2, 22);
-    g.font='7px monospace'; g.fillStyle=P.white; g.fillText('Emma grabbed her stuff and survived Jordan.', VW/2, 50);
-    g.fillStyle=P.ui; g.fillText('She peels out in the red Kia Soul — on time!', VW/2, 62);
-    g.fillStyle=P.ui; g.font='bold 9px monospace'; g.fillText('FINAL SCORE: '+score, VW/2, 78);
-    if(Math.floor(t0*2)%2===0){ g.fillStyle=P.white; g.font='7px monospace'; g.fillText('TAP TO PLAY AGAIN', VW/2, VH-24); }
+    g.font='bold 18px monospace'; g.fillStyle=P.black; gtext('CLOCKED IN!', VW/2+2, 24); g.fillStyle=P.ui; gtext('CLOCKED IN!', VW/2, 22);
+    g.font='7px monospace'; g.fillStyle=P.white; gtext('Emma grabbed her stuff and survived Jordan.', VW/2, 50);
+    g.fillStyle=P.ui; gtext('She peels out in the red Kia Soul — on time!', VW/2, 62);
+    g.fillStyle=P.ui; g.font='bold 9px monospace'; gtext('FINAL SCORE: '+score, VW/2, 78);
+    if(Math.floor(t0*2)%2===0){ g.fillStyle=P.white; g.font='7px monospace'; gtext('TAP TO PLAY AGAIN', VW/2, VH-24); }
     return;
   }
   drawSky(); drawGround();
@@ -1286,37 +1302,37 @@ function drawWin(){
   particles.forEach(drawParticle);
   g.textAlign='center'; g.textBaseline='top';
   var t=performance.now()/1000;
-  g.font='bold 18px monospace'; g.fillStyle=P.black; g.fillText('YOU ESCAPED!', VW/2+2, 24);
-  g.fillStyle=P.ui; g.fillText('YOU ESCAPED!', VW/2, 22);
+  g.font='bold 18px monospace'; g.fillStyle=P.black; gtext('YOU ESCAPED!', VW/2+2, 24);
+  g.fillStyle=P.ui; gtext('YOU ESCAPED!', VW/2, 22);
   g.font='7px monospace'; g.fillStyle=P.white;
-  g.fillText('Todd retreats to put on his AirPods and listen to Tucker.', VW/2, 50);
+  gtext('Todd retreats to put on his AirPods and listen to Tucker.', VW/2, 50);
   g.fillStyle=P.ui;
-  g.fillText('Ronda and '+(char.dogName||'the dog')+' are free!!!', VW/2, 62);
+  gtext('Ronda and '+(char.dogName||'the dog')+' are free!!!', VW/2, 62);
   g.fillStyle=P.ui; g.font='bold 9px monospace';
-  g.fillText('FINAL SCORE: '+score, VW/2, 78);
-  if(Math.floor(t*2)%2===0){ g.fillStyle=P.white; g.font='7px monospace'; g.fillText('TAP TO PLAY AGAIN', VW/2, VH-24); }
+  gtext('FINAL SCORE: '+score, VW/2, 78);
+  if(Math.floor(t*2)%2===0){ g.fillStyle=P.white; g.font='7px monospace'; gtext('TAP TO PLAY AGAIN', VW/2, VH-24); }
 }
 function drawLose(){
   if(char.id==='emma'){
     drawEmmaBg();
     g.textAlign='center'; g.textBaseline='top';
     var late = emmaLoseReason==='late';
-    g.font='bold 16px monospace'; g.fillStyle=P.black; g.fillText(late?'LATE FOR WORK!':'MELTDOWN!', VW/2+2, 40);
-    g.fillStyle=P.red; g.fillText(late?'LATE FOR WORK!':'MELTDOWN!', VW/2, 38);
+    g.font='bold 16px monospace'; g.fillStyle=P.black; gtext(late?'LATE FOR WORK!':'MELTDOWN!', VW/2+2, 40);
+    g.fillStyle=P.red; gtext(late?'LATE FOR WORK!':'MELTDOWN!', VW/2, 38);
     g.font='7px monospace'; g.fillStyle=P.white;
-    g.fillText(late?'The clock ran out. The Mouse does not approve.':'Jordan and the little creeps got the best of her.', VW/2, 66);
-    g.fillStyle=P.ui; g.font='bold 9px monospace'; g.fillText('SCORE: '+score, VW/2, 82);
-    if(Math.floor(performance.now()/500)%2===0){ g.fillStyle=P.white; g.font='7px monospace'; g.fillText('TAP TO TRY AGAIN', VW/2, VH-24); }
+    gtext(late?'The clock ran out. The Mouse does not approve.':'Jordan and the little creeps got the best of her.', VW/2, 66);
+    g.fillStyle=P.ui; g.font='bold 9px monospace'; gtext('SCORE: '+score, VW/2, 82);
+    if(Math.floor(performance.now()/500)%2===0){ g.fillStyle=P.white; g.font='7px monospace'; gtext('TAP TO TRY AGAIN', VW/2, VH-24); }
     return;
   }
   drawSky(); drawGround();
   g.textAlign='center'; g.textBaseline='top';
-  g.font='bold 16px monospace'; g.fillStyle=P.black; g.fillText('CORNERED!', VW/2+2, 40);
-  g.fillStyle=P.red; g.fillText('CORNERED!', VW/2, 38);
+  g.font='bold 16px monospace'; g.fillStyle=P.black; gtext('CORNERED!', VW/2+2, 40);
+  g.fillStyle=P.red; gtext('CORNERED!', VW/2, 38);
   g.font='7px monospace'; g.fillStyle=P.white;
-  g.fillText('The people caught up with '+(char.dogName||'the dog')+'. The horror.', VW/2, 66);
-  g.fillStyle=P.ui; g.font='bold 9px monospace'; g.fillText('SCORE: '+score, VW/2, 82);
-  if(Math.floor(performance.now()/500)%2===0){ g.fillStyle=P.white; g.font='7px monospace'; g.fillText('TAP TO TRY AGAIN', VW/2, VH-24); }
+  gtext('The people caught up with '+(char.dogName||'the dog')+'. The horror.', VW/2, 66);
+  g.fillStyle=P.ui; g.font='bold 9px monospace'; gtext('SCORE: '+score, VW/2, 82);
+  if(Math.floor(performance.now()/500)%2===0){ g.fillStyle=P.white; g.font='7px monospace'; gtext('TAP TO TRY AGAIN', VW/2, VH-24); }
 }
 
 /* ---------------- world render ---------------- */
@@ -1348,8 +1364,8 @@ function drawPlay(){
   g.textAlign='center'; g.textBaseline='bottom';
   floats.forEach(function(fl){ var s=fl.size||7; g.font=(s>=12?'bold ':'')+s+'px monospace';
     g.globalAlpha=Math.max(0,1-fl.t/1.1);
-    if(s>=12){ g.fillStyle='#000'; g.fillText(fl.txt, fl.x-world.scrollX+1, fl.y+1); }
-    g.fillStyle=fl.col; g.fillText(fl.txt, fl.x-world.scrollX, fl.y); g.globalAlpha=1; });
+    if(s>=12){ g.fillStyle='#000'; gtext(fl.txt, fl.x-world.scrollX+1, fl.y+1); }
+    g.fillStyle=fl.col; gtext(fl.txt, fl.x-world.scrollX, fl.y); g.globalAlpha=1; });
   g.restore();
   drawHUD();
   // launch banner
@@ -1358,11 +1374,11 @@ function drawPlay(){
     a=Math.max(0,Math.min(1,a));
     g.globalAlpha=a*0.85; g.fillStyle='#000'; g.fillRect(0,VH/2-24,VW,48); g.globalAlpha=a;
     g.textAlign='center'; g.textBaseline='middle';
-    g.fillStyle=P.red; g.font='bold 15px monospace'; g.fillText(char.mode||"", VW/2, VH/2-6);
-    g.fillStyle=P.white; g.font='7px monospace'; g.fillText(char.sub||'', VW/2, VH/2+10);
+    g.fillStyle=P.red; g.font='bold 15px monospace'; gtext(char.mode||"", VW/2, VH/2-6);
+    g.fillStyle=P.white; g.font='7px monospace'; gtext(char.sub||'', VW/2, VH/2+10);
     g.globalAlpha=1;
   }
-  if(paused){ g.fillStyle='rgba(0,0,0,.55)'; g.fillRect(0,0,VW,VH); g.fillStyle=P.white; g.textAlign='center'; g.textBaseline='middle'; g.font='bold 14px monospace'; g.fillText('PAUSED', VW/2, VH/2); }
+  if(paused){ g.fillStyle='rgba(0,0,0,.55)'; g.fillRect(0,0,VW,VH); g.fillStyle=P.white; g.textAlign='center'; g.textBaseline='middle'; g.font='bold 14px monospace'; gtext('PAUSED', VW/2, VH/2); }
 }
 
 /* ============================================================
@@ -1426,6 +1442,7 @@ function loop(now){
   // blit to screen, letterboxed
   ctx.fillStyle='#000'; ctx.fillRect(0,0,cv.width,cv.height);
   ctx.drawImage(buf, 0,0, VW,VH, 0,0, cv.width, cv.height);
+  flushText(); // crisp UI text on top, at display resolution
 
   requestAnimationFrame(loop);
 }
