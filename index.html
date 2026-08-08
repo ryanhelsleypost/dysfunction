@@ -61,7 +61,7 @@
    Single-file, canvas 2D, procedural pixel art + chiptune.
    Deploy: this is index.html at repo root (GitHub Pages).
    ============================================================ */
-var BUILD = "1786217494"; // replaced at deploy time (unix ts)
+var BUILD = "1786217887"; // replaced at deploy time (unix ts)
 
 /* -------------------- Self-updater (matches your deploy flow) -------------------- */
 (function(){
@@ -120,8 +120,8 @@ var ROSTER = [
     bossName:'TONY',
     bossLines:['gimme your lunch money','TIMEOUT, loser!','nerd alert','you throw like a baby','hand over the iPad'] },
   { id:'presley', name:'PRESLEY', locked:false, mode:"PRESLEY'S PARLOR",
-    sub:'milk the goats, fill the pail', i1:'🧀', i2:'🐈‍⬛',
-    tagline:'Presley milks goats (she calls it goat jizz) while the family swarms her.',
+    sub:'jizzzzzz the goats, fill the pail', i1:'🧀', i2:'🐈‍⬛',
+    tagline:'Presley collects goat jizzzzzz while the whole family swarms her.',
     a1:'CHEESE DUSTER', a2:'FRIDAY THE CAT',
     enemyName:'RONDA, TODD & SOOKIE' }
 ];
@@ -913,7 +913,7 @@ function presleyEntities(dt){
   }
   // milk pickups (collect before they vanish)
   for(var m=milks.length-1;m>=0;m--){ var mk=milks[m]; mk.t+=dt;
-    if(aabb(player.x,player.y,player.w,player.h, mk.x-6,mk.y-8,12,12)){ milks.splice(m,1); pail=Math.min(pailMax,pail+1); SFX.pickup(); addScore(60,mk.x,mk.y-8); addFloat('MILK!',mk.x,mk.y-12,'#ffffff',9);
+    if(aabb(player.x,player.y,player.w,player.h, mk.x-6,mk.y-8,12,12)){ milks.splice(m,1); pail=Math.min(pailMax,pail+1); SFX.pickup(); addScore(60,mk.x,mk.y-8); addFloat('JIZZZZZZ!',mk.x,mk.y-12,'#ffffff',9);
       if(pail>=pailMax && STATE==='PLAY'){ onPresleyWin(); } continue; }
     if(mk.t>4.6) milks.splice(m,1);
   }
@@ -925,7 +925,7 @@ function presleyEntities(dt){
         if(e2.hp<=0){ e2.ko=true; e2.koT=0; addScore(100,e2.x,e2.y-10); } } }
     for(var gg=0;gg<goats.length;gg++){ var go2=goats[gg]; if(go2.cd>0) continue;
       if(Math.abs(go2.x-pr.x)<pr.r+4){ go2.cd=6; milks.push({ x:go2.x+(Math.random()*10-5), y:GROUND-8, t:0 });
-        for(var s=0;s<4;s++) particles.push(makeP(go2.x+8,GROUND-8,'milk')); addFloat('secreted!',go2.x,GROUND-24,'#dffbff',8); } }
+        for(var s=0;s<4;s++) particles.push(makeP(go2.x+8,GROUND-8,'milk')); addFloat('JIZZED!',go2.x,GROUND-24,'#dffbff',8); } }
     if(pr.life>1.35 || pr.x<world.scrollX-40 || pr.x>world.scrollX+VW+40) projectiles.splice(p,1);
   }
 }
@@ -1886,40 +1886,36 @@ var selBtns=[];
 function drawSelect(){
   drawSky(); drawGround();
   g.textAlign='center'; g.textBaseline='top';
-  g.font='bold 12px monospace'; g.fillStyle=P.ui; gtext('dysFUNction — PICK YOUR STORY', VW/2, 12);
+  g.font='bold 12px monospace'; g.fillStyle=P.ui; gtext('dysFUNction — PICK YOUR STORY', VW/2, 6);
   selBtns=[];
-  var n=ROSTER.length, cw=104, gap=10, totalW=n*cw+(n-1)*gap, startX=VW/2-totalW/2;
-  for(var i=0;i<n;i++){
-    var r=ROSTER[i], x=startX+i*(cw+gap), y=34, h=150;
-    selBtns.push({x:x,y:y,w:cw,h:h,i:i});
-    var on=(i===selIndex);
-    px(x,y,cw,h, on?'#2a3a5a':'#1a2338'); 
-    g.strokeStyle=on?P.ui:'#456'; g.lineWidth=on?3:1; g.strokeRect(x+1,y+1,cw-2,h-2);
-    if(r.locked){
-      g.fillStyle='#556'; g.font='bold 30px monospace'; gtext('?', x+cw/2, y+40);
-      g.fillStyle='#889'; g.font='7px monospace'; gtext('LOCKED', x+cw/2, y+80);
-      wrapText(r.tagline, x+cw/2, y+96, cw-12, '#778');
-    } else {
-      // portrait
-      if(r.id==='emma'){
-        drawEmma(x+cw/2-10, y+22, 1, 'idle', performance.now()/300);
-      } else if(r.id==='jordan'){
-        drawKidJordan(x+cw/2-9, y+30, 1, 'idle', performance.now()/300, false);
-      } else if(r.id==='presley'){
-        drawPresley(x+cw/2-10, y+26, 1, 'idle', performance.now()/300);
-      } else {
-        drawRonda(x+cw/2-10, y+26, 1, 'idle', performance.now()/300);
-        drawDog(x+cw/2+8, y+44, -1,false);
-      }
-      g.fillStyle=P.white; g.font='bold 11px monospace'; gtext(r.name, x+cw/2, y+72);
-      if(r.mode){ g.fillStyle=P.red; g.font='bold 7px monospace'; gtext(r.mode, x+cw/2, y+84); }
-      g.fillStyle=P.parkaHi; g.font='6px monospace'; gtext((r.i1||'🐕')+' '+r.a1, x+cw/2, y+96);
-      g.fillStyle=P.heart; gtext((r.i2||'💋')+' '+r.a2, x+cw/2, y+106);
-      wrapText(r.tagline, x+cw/2, y+120, cw-10, '#cde');
+  var SLOTS=6, cols=3, cw=116, ch=80, gapX=8, gapY=8;
+  var totalW=cols*cw+(cols-1)*gapX, startX=Math.round(VW/2-totalW/2), startY=24;
+  for(var i=0;i<SLOTS;i++){
+    var col=i%cols, row=(i/cols)|0;
+    var x=startX+col*(cw+gapX), y=startY+row*(ch+gapY);
+    var r=ROSTER[i];
+    var on=(i===selIndex && r && !r.locked);
+    px(x,y,cw,ch, on?'#2a3a5a':'#1a2338');
+    g.strokeStyle=on?P.ui:'#456'; g.lineWidth=on?3:1; g.strokeRect(x+1,y+1,cw-2,ch-2);
+    if(!r){ // coming soon
+      g.fillStyle='#4a5570'; g.font='bold 26px monospace'; gtext('?', x+cw/2, y+16);
+      g.fillStyle='#7a86a0'; g.font='7px monospace'; gtext('COMING SOON', x+cw/2, y+52);
+      continue;
     }
+    selBtns.push({x:x,y:y,w:cw,h:ch,i:i});
+    if(r.locked){ g.fillStyle='#4a5570'; g.font='bold 26px monospace'; gtext('?', x+cw/2, y+16); g.fillStyle='#7a86a0'; g.font='7px monospace'; gtext('LOCKED', x+cw/2, y+52); continue; }
+    var pcx=x+cw/2, ptime=performance.now()/300;
+    if(r.id==='emma') drawEmma(pcx-10, y+4, 1,'idle',ptime);
+    else if(r.id==='jordan') drawKidJordan(pcx-9, y+10, 1,'idle',ptime,false);
+    else if(r.id==='presley') drawPresley(pcx-10, y+6, 1,'idle',ptime);
+    else { drawRonda(pcx-15, y+4, 1,'idle',ptime); drawDog(pcx+7, y+22, -1,false); }
+    g.fillStyle=P.white; g.font='bold 10px monospace'; gtext(r.name, pcx, y+43);
+    if(r.mode){ g.fillStyle=P.red; g.font='6px monospace'; gtext(r.mode, pcx, y+54); }
+    g.fillStyle=P.parkaHi; g.font='6px monospace'; gtext((r.i1||'🐕')+' '+r.a1, pcx, y+63);
+    g.fillStyle=P.heart; gtext((r.i2||'💋')+' '+r.a2, pcx, y+71);
   }
   g.fillStyle=P.white; g.font='8px monospace';
-  gtext('TAP A CHARACTER  •  ← → then JUMP to pick', VW/2, VH-14);
+  gtext('TAP A CHARACTER  •  ← → then JUMP to pick', VW/2, VH-12);
 }
 function wrapText(txt,cx,y,maxw,col){
   g.fillStyle=col; g.font='6px monospace'; g.textAlign='center';
@@ -1965,7 +1961,7 @@ function drawWin(){
     var tp=performance.now()/1000;
     g.font='bold 18px monospace'; g.fillStyle=P.black; gtext('PAIL FULL!', VW/2+2, 24); g.fillStyle=P.ui; gtext('PAIL FULL!', VW/2, 22);
     g.font='7px monospace'; g.fillStyle=P.white; gtext('Every goat milked, the whole family fended off.', VW/2, 50);
-    g.fillStyle=P.ui; gtext('Presley bottles the goat jizz. Friday approves.', VW/2, 62);
+    g.fillStyle=P.ui; gtext('Presley bottles the goat jizzzzzz. Friday approves.', VW/2, 62);
     g.fillStyle=P.ui; g.font='bold 9px monospace'; gtext('FINAL SCORE: '+score, VW/2, 78);
     if(Math.floor(tp*2)%2===0){ g.fillStyle=P.white; g.font='7px monospace'; gtext('TAP TO PLAY AGAIN', VW/2, VH-24); }
     return;
