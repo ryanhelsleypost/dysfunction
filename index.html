@@ -61,7 +61,7 @@
    Single-file, canvas 2D, procedural pixel art + chiptune.
    Deploy: this is index.html at repo root (GitHub Pages).
    ============================================================ */
-var BUILD = "1786120861"; // replaced at deploy time (unix ts)
+var BUILD = "1786175589"; // replaced at deploy time (unix ts)
 
 /* -------------------- Self-updater (matches your deploy flow) -------------------- */
 (function(){
@@ -112,7 +112,13 @@ var ROSTER = [
     bossName:'JORDAN',
     bossLines:['smoochy smoochy','I only get to be 7 for so long','take me to McDonalds Bitch!','let me hug you!','wanna play wanna play?']
   },
-  { id:'q3', name:'???', locked:true, tagline:'Coming soon — new attacks, new enemies.' }
+  { id:'jordan', name:'JORDAN', locked:false, mode:"JORDAN'S RAMPAGE",
+    sub:'smash it all — reach the iPad', i1:'💨', i2:'🌊',
+    tagline:'Jordan loves chaos. Wreck everything, dodge timeout.',
+    a1:'WHOOPEE CUSHION', a2:'WATER GEYSER',
+    enemyName:'GREEN OGRES',
+    bossName:'TONY',
+    bossLines:['gimme your lunch money','TIMEOUT, loser!','nerd alert','you throw like a baby','hand over the iPad'] }
 ];
 
 /* ============================================================
@@ -294,7 +300,10 @@ var SFX = {
   train:function(){ blip(150,0.14,'triangle',0.2); setTimeout(function(){ blip(150,0.14,'triangle',0.2); },170); setTimeout(function(){ blip(200,0.2,'triangle',0.2); },340); noise(0.25,0.05); },
   scream:function(){ if(!audioReady||muted) return; var o=AC.createOscillator(), gg=AC.createGain(), t=AC.currentTime; o.type='sawtooth'; o.frequency.setValueAtTime(520,t); o.frequency.linearRampToValueAtTime(920,t+0.3); o.frequency.linearRampToValueAtTime(420,t+0.6); gg.gain.setValueAtTime(0.2,t); gg.gain.exponentialRampToValueAtTime(0.001,t+0.66); o.connect(gg); gg.connect(master); o.start(t); o.stop(t+0.7); },
   kidLaugh:function(){ [74,78,74,78,81].forEach(function(m,i){ setTimeout(function(){ blip(midi(m),0.06,'square',0.2); }, i*75); }); },
-  fart:function(){ if(!audioReady||muted) return; var o=AC.createOscillator(), gg=AC.createGain(), t=AC.currentTime; o.type='sawtooth'; o.frequency.setValueAtTime(95,t); o.frequency.linearRampToValueAtTime(55,t+0.28); gg.gain.setValueAtTime(0.25,t); gg.gain.exponentialRampToValueAtTime(0.001,t+0.3); o.connect(gg); gg.connect(master); o.start(t); o.stop(t+0.32); noise(0.12,0.09); }
+  fart:function(){ if(!audioReady||muted) return; var o=AC.createOscillator(), gg=AC.createGain(), t=AC.currentTime; o.type='sawtooth'; o.frequency.setValueAtTime(95,t); o.frequency.linearRampToValueAtTime(55,t+0.28); gg.gain.setValueAtTime(0.25,t); gg.gain.exponentialRampToValueAtTime(0.001,t+0.3); o.connect(gg); gg.connect(master); o.start(t); o.stop(t+0.32); noise(0.12,0.09); },
+  throwPop:function(){ blip(300,0.05,'square',0.2); noise(0.03,0.1); },
+  geyser:function(){ if(!audioReady||muted) return; noise(0.5,0.18); var o=AC.createOscillator(), gg=AC.createGain(), t=AC.currentTime; o.type='sine'; o.frequency.setValueAtTime(200,t); o.frequency.linearRampToValueAtTime(700,t+0.4); gg.gain.setValueAtTime(0.16,t); gg.gain.exponentialRampToValueAtTime(0.001,t+0.5); o.connect(gg); gg.connect(master); o.start(t); o.stop(t+0.5); },
+  crash:function(){ if(!audioReady||muted) return; noise(0.35,0.32); [40,32,28].forEach(function(f,i){ setTimeout(function(){ var o=AC.createOscillator(),gg=AC.createGain(),t=AC.currentTime; o.type='square'; o.frequency.value=f*8; gg.gain.setValueAtTime(0.2,t); gg.gain.exponentialRampToValueAtTime(0.001,t+0.18); o.connect(gg); gg.connect(master); o.start(t); o.stop(t+0.2); }, i*60); }); }
 };
 
 /* Music scheduler */
@@ -364,6 +373,9 @@ var BOSS_TRIGGER=2380, BOSS_X=2510, ARENA_L=2440, ARENA_R=2560;
 var EM_TRIGGER=2300, EM_ARENA_L=2360, EM_ARENA_R=2500, KIA_X=2556;
 var player, dog, enemies, projectiles, particles, floats, boss, score, combo, comboTimer, shake, winTimer, blinkT, introT;
 var items, clockT, clockMax, ethan, anxT, anxFX, emmaLoseReason;
+// Jordan level
+var J_TRIGGER=2350, J_ARENA_L=2400, J_ARENA_R=2560, IPAD_X=2620;
+var structs, geyserFX;
 
 function resetGame(){
   world.scrollX=0;
@@ -374,7 +386,7 @@ function resetGame(){
   enemies=[]; projectiles=[]; particles=[]; floats=[];
   score=0; combo=0; comboTimer=0; shake=0; winTimer=0; blinkT=0; introT=1.6;
   A1_CD=0; A2_CD=0;
-  if(char.id==='emma') emmaSetup(); else rondaSetup();
+  if(char.id==='emma') emmaSetup(); else if(char.id==='jordan') jordanSetup(); else rondaSetup();
 }
 function rondaSetup(){
   boss={ active:false, x:BOSS_X, y:GROUND-40, w:26, h:40, hp:10, maxHp:10, t:0, inv:0, state:'walk', dir:-1, defeated:false, taunt:0, tauntCd:1.2, line:'' };
@@ -410,6 +422,23 @@ function makeEnemy(x){
 function makeCreepy(x){
   return { x:x, y:GROUND-16, w:14, h:16, hp:1, dead:false, face:-1,
            walkT:Math.random()*6, wob:Math.random()*6, tone:(Math.random()<0.5), active:false };
+}
+function makeOgre(x){
+  return { x:x, y:GROUND-26, w:20, h:26, hp:2, dead:false, face:-1, walkT:Math.random()*6, active:false };
+}
+function jordanSetup(){
+  world.len=2700;
+  player.w=20; player.h=26; player.y=GROUND-26; // Jordan is a shorter kid
+  structs=[
+    {kind:'tower',  label:'TOWER',  x:600,  hp:3, maxHp:3, dead:false, shk:0},
+    {kind:'ship',   label:'SHIP',   x:1200, hp:3, maxHp:3, dead:false, shk:0},
+    {kind:'bridge', label:'BRIDGE', x:1780, hp:3, maxHp:3, dead:false, shk:0}
+  ];
+  geyserFX=0;
+  var gx=480;
+  while(gx < J_TRIGGER-80){ enemies.push(makeOgre(gx)); gx += 175+Math.random()*130; }
+  boss={ active:false, x:J_ARENA_R, y:GROUND-36, w:22, h:36, hp:12, maxHp:12, t:0, inv:0, dir:-1, defeated:false, taunt:0, tauntCd:1.2, line:'', scream:2.4, throwT:1.4 };
+  mus.boss=false;
 }
 
 /* ============================================================
@@ -490,6 +519,7 @@ function addFloat(txt,x,y,col,size){ floats.push({txt:txt,x:x,y:y,t:0,col:col||P
 var BARKS=['woof','woof!','WOOF','14','14!','1-4','14?','woof 14','14!!','bark','14','14-14'];
 function makeP(x,y,type){
   var a=Math.random()*Math.PI*2;
+  if(type==='gas'){ return { x:x,y:y, vx:(Math.random()*2-1)*22, vy:-14-Math.random()*22, t:0, life:0.7+Math.random()*0.5, type:type }; }
   if(type==='bark'){
     var ba=Math.random()*Math.PI*2, bs=55+Math.random()*75;
     var o={ x:x,y:y, vx:Math.cos(ba)*bs, vy:Math.sin(ba)*bs-18, t:0, life:1.1+Math.random()*0.5, type:type };
@@ -528,6 +558,7 @@ function update(dt){
   // variable jump height: release early = shorter hop
   if(!K.jump && player.vy<-70) player.vy=-70;
   if(char.id==='emma'){ if(a1Edge) doSnack(); if(a2Edge) doEthan(); }
+  else if(char.id==='jordan'){ if(a1Edge) doWhoopie(); if(a2Edge) doGeyser(); }
   else { if(a1Edge) doAttack1(); if(a2Edge) doAttack2(); }
   jumpEdge=a1Edge=a2Edge=false;
 
@@ -556,12 +587,12 @@ function update(dt){
   var maxScroll = world.len - VW;
   if(world.scrollX>maxScroll) world.scrollX=maxScroll;
 
-  if(char.id==='emma') emmaEntities(dt); else rondaEntities(dt);
+  if(char.id==='emma') emmaEntities(dt); else if(char.id==='jordan') jordanEntities(dt); else rondaEntities(dt);
 
   // particles / floats
   for(var k=particles.length-1;k>=0;k--){ var pt=particles[k]; pt.t+=dt; pt.x+=pt.vx*dt; pt.y+=pt.vy*dt;
     if(pt.type==='bark'){ var d=Math.min(1,dt*4.5); pt.vx-=pt.vx*d; pt.vy-=pt.vy*d; }
-    else if(pt.type!=='heart') pt.vy+=200*dt;
+    else if(pt.type!=='heart' && pt.type!=='gas') pt.vy+=200*dt;
     if(pt.t>pt.life) particles.splice(k,1); }
   for(var f=floats.length-1;f>=0;f--){ var fl=floats[f]; fl.t+=dt; fl.y-=18*dt; if(fl.t>1.1) floats.splice(f,1); }
 
@@ -732,6 +763,92 @@ var emmaNagCd=0;
 function onEmmaWin(){ STATE='WIN'; winTimer=0; SFX.win(); mus.on=false;
   for(var i=0;i<30;i++) particles.push(makeP(player.x+10, player.y+6, 'heart')); }
 
+/* ============================================================
+   JORDAN MODULE — chaos: whoopee cushion, water geyser, bully Tony
+   ============================================================ */
+function doWhoopie(){
+  if(A1_CD>0) return; A1_CD=0.5;
+  player.state='throw'; player.throwT=0.18;
+  projectiles.push({ x:player.x+player.w/2+player.face*8, y:player.y+8, vx:player.face*210, vy:-72, rot:0, type:'whoopie', owner:'player', life:0 });
+  SFX.throwPop();
+}
+function doGeyser(){
+  if(A2_CD>0) return; A2_CD=3.6;
+  geyserFX=0.9; SFX.geyser(); shake=7;
+  addFloat('GEYSER!', player.x+player.w/2, player.y-16, '#7fd0ff', 14);
+  for(var i=0;i<enemies.length;i++){ var e=enemies[i]; if(e.dead) continue;
+    if(e.x>world.scrollX-10 && e.x<world.scrollX+VW+10){ e.dead=true; addScore(80,e.x,e.y-8); for(var p=0;p<6;p++) particles.push(makeP(e.x+8,GROUND-6,'water')); }
+  }
+  if(boss.active && !boss.defeated && boss.x<world.scrollX+VW && boss.inv<=0){ boss.hp-=2; boss.inv=0.5; shake=8; }
+  for(var c=0;c<VW;c+=44){ for(var k=0;k<7;k++) particles.push(makeP(world.scrollX+c+(Math.random()*20), GROUND-2, 'water')); }
+}
+function tonyThrow(){
+  var t=Math.random()<0.5?'bottle':'backpack';
+  projectiles.push({ x:boss.x+(boss.dir<0?-4:boss.w+4), y:boss.y+8, vx:(player.x<boss.x?-1:1)*150, vy:-165, rot:0, type:t, owner:'enemy', life:0 });
+}
+function tonyScream(){ SFX.scream(); shake=6; boss.taunt=1.2; boss.line='AAAAAAH!';
+  if(Math.abs(boss.x-player.x)<70){ player.vx += (player.x<boss.x?-1:1)*160; }
+  addFloat('SCREAM!', boss.x, boss.y-16, P.red, 10);
+}
+var jNag=0;
+function allStructs(){ return structs.every(function(s){ return s.dead; }); }
+function onJordanWin(){ STATE='WIN'; winTimer=0; SFX.win(); mus.on=false;
+  for(var i=0;i<30;i++) particles.push(makeP(player.x+10, player.y, 'star')); }
+function jordanEntities(dt){
+  if(geyserFX>0) geyserFX-=dt;
+  // ogres
+  for(var j=0;j<enemies.length;j++){ var e=enemies[j]; if(e.dead) continue;
+    if(!e.active && e.x < world.scrollX+VW+40) e.active=true; if(!e.active) continue;
+    e.walkT+=dt; var dir=(player.x<e.x)?-1:1; e.face=dir; e.x += dir*40*dt;
+    if(player.inv<=0 && aabb(player.x,player.y,player.w,player.h, e.x,e.y,e.w,e.h)) hurtPlayer(1, e.x<player.x?1:-1);
+  }
+  for(var s=0;s<structs.length;s++){ if(structs[s].shk>0) structs[s].shk-=dt; }
+  // Tony
+  if(!boss.active && player.x>J_TRIGGER){ boss.active=true; addFloat('TONY WANTS TO FIGHT!', player.x, player.y-30, P.red); }
+  if(boss.active && !boss.defeated){
+    boss.t+=dt; if(boss.inv>0) boss.inv-=dt;
+    var bdir=(player.x<boss.x)?-1:1; boss.dir=bdir; boss.x += bdir*18*dt;
+    if(boss.x<J_ARENA_L) boss.x=J_ARENA_L; if(boss.x>J_ARENA_R) boss.x=J_ARENA_R;
+    if(boss.taunt>0) boss.taunt-=dt; boss.tauntCd-=dt;
+    if(boss.tauntCd<=0){ boss.tauntCd=3.2; boss.taunt=1.5; boss.line=char.bossLines[(Math.random()*char.bossLines.length)|0]; }
+    boss.throwT-=dt; if(boss.throwT<=0){ boss.throwT=1.8; tonyThrow(); }
+    boss.scream-=dt; if(boss.scream<=0){ boss.scream=4.6; tonyScream(); }
+    if(player.inv<=0 && aabb(player.x,player.y,player.w,player.h, boss.x,boss.y,boss.w,boss.h)) hurtPlayer(1, boss.x<player.x?1:-1);
+  }
+  // projectiles: whoopee (player) vs bottles/backpacks (enemy)
+  for(var p=projectiles.length-1;p>=0;p--){ var pr=projectiles[p];
+    pr.vy+=520*dt; pr.x+=pr.vx*dt; pr.y+=pr.vy*dt; pr.rot+=dt*9; pr.life=(pr.life||0)+dt;
+    if(pr.owner==='player'){
+      var done=false;
+      for(var q=0;q<enemies.length;q++){ var e2=enemies[q]; if(e2.dead) continue;
+        if(aabb(pr.x-5,pr.y-5,10,10, e2.x,e2.y,e2.w,e2.h)){ e2.hp--; SFX.fart(); for(var g0=0;g0<6;g0++) particles.push(makeP(e2.x+8,e2.y+8,'gas'));
+          if(e2.hp<=0){ e2.dead=true; addScore(100,e2.x,e2.y-8); } done=true; break; } }
+      if(!done){ for(var t=0;t<structs.length;t++){ var st=structs[t]; if(st.dead) continue;
+        if(Math.abs(pr.x-st.x)<26 && pr.y>GROUND-44){ st.hp--; st.shk=0.3; SFX.fart(); for(var g1=0;g1<5;g1++) particles.push(makeP(pr.x,pr.y,'gas'));
+          if(st.hp<=0){ st.dead=true; addScore(300,st.x,GROUND-30); SFX.crash(); shake=8;
+            for(var d=0;d<20;d++) particles.push(makeP(st.x+(Math.random()*40-20), GROUND-18-Math.random()*22, st.kind==='ship'?'water':'debris'));
+            addFloat(st.label+' DOWN!', st.x, GROUND-42, P.ui, 12); }
+          done=true; break; } } }
+      if(!done && boss.active && !boss.defeated && boss.inv<=0 && aabb(pr.x-5,pr.y-5,10,10, boss.x,boss.y,boss.w,boss.h)){
+        boss.hp--; boss.inv=0.4; shake=5; SFX.fart(); for(var g2=0;g2<6;g2++) particles.push(makeP(boss.x+11,boss.y+12,'gas'));
+        done=true; if(boss.hp<=0){ boss.defeated=true; addFloat('TONY RAGE QUIT!', boss.x, boss.y-20, P.ui, 12); } }
+      if(done){ projectiles.splice(p,1); continue; }
+      if(pr.y>GROUND+2){ SFX.fart(); for(var g3=0;g3<4;g3++) particles.push(makeP(pr.x,GROUND-3,'gas')); projectiles.splice(p,1); continue; }
+    } else {
+      if(player.inv<=0 && aabb(player.x,player.y,player.w,player.h, pr.x-6,pr.y-6,12,12)){ hurtPlayer(1, pr.vx>0?-1:1); projectiles.splice(p,1); continue; }
+      if(pr.y>GROUND+4){ for(var dd=0;dd<3;dd++) particles.push(makeP(pr.x,GROUND-4, pr.type==='bottle'?'water':'debris')); projectiles.splice(p,1); continue; }
+    }
+    if(pr.x<world.scrollX-60||pr.x>world.scrollX+VW+80) projectiles.splice(p,1);
+  }
+  // WIN: all structures wrecked + Tony beaten + reach the iPad
+  if(player.x>IPAD_X-16 && STATE==='PLAY'){
+    if(allStructs() && boss.defeated){ onJordanWin(); }
+    else if(jNag<=0){ jNag=1.4; var miss=[]; structs.forEach(function(s){ if(!s.dead) miss.push(s.label); }); if(!boss.defeated) miss.push('beat TONY');
+      addFloat('STILL NEED: '+miss.join(', '), player.x, player.y-22, P.red, 8); }
+  }
+  if(jNag>0) jNag-=dt;
+}
+
 function onWin(){ STATE='WIN'; winTimer=0; SFX.win(); mus.on=false;
   for(var i=0;i<40;i++) particles.push(makeP(boss.x+13, boss.y+10, 'star')); }
 function onLose(){ STATE='LOSE'; SFX.lose(); mus.on=false; }
@@ -889,6 +1006,9 @@ function drawParticle(p){
   else if(p.type==='flower'){ px(x-1,y-1,3,3,'#ff9ecb'); px(x,y,1,1,'#ffe14a'); }
   else if(p.type==='tear'){ px(x,y,2,3,'#7fd7ff'); }
   else if(p.type==='crumb'){ px(x,y,2,2,'#c8963c'); }
+  else if(p.type==='gas'){ px(x-1,y-1,3,3,'#8fd07a'); px(x+1,y,1,1,'#6fb05a'); }
+  else if(p.type==='water'){ px(x,y,2,2,'#5aa0e0'); px(x,y-1,1,1,'#bfe0ff'); }
+  else if(p.type==='debris'){ px(x,y,2,2,'#8a8a8a'); }
   else { px(x,y,2,2,P.dirtD); }
 }
 
@@ -969,11 +1089,10 @@ function drawCreepy(e){
   px(X(4),y+5,6,1,'#3a1a1a');
   px(X(5),y+5,1,1,'#fff'); px(X(7),y+5,1,1,'#fff'); px(X(9),y+5,1,1,'#fff');
 }
-function drawJordan(){
-  var sx=boss.x-world.scrollX, sy=boss.y; var flip=boss.dir<0; function X(x){ return flip?(sx+18-x):(sx+x); }
-  var bob=Math.sin(boss.t*8)*1|0; var y=sy+bob;
-  var flash=boss.inv>0 && (Math.floor(blinkT*20)%2===0);
-  // short legs + sneakers
+function drawKidJordan(sx,sy,face,state,anim,flash){
+  var flip=face<0; function X(x){ return flip?(sx+18-x):(sx+x); }
+  var bob=(state==='walk')?(Math.sin(anim)*1|0):0; var y=sy+bob;
+  // legs + sneakers
   px(X(6),y+18,4,5,P.skin); px(X(10),y+18,4,5,P.skin);
   px(X(5),y+22,5,2,'#222'); px(X(10),y+22,5,2,'#222');
   // shorts
@@ -982,19 +1101,109 @@ function drawJordan(){
   px(X(4),y+7,12,9, flash?'#fff':'#161616');
   var sc=flash?'#161616':'#fff';
   px(X(9),y+9,1,4,sc); px(X(7),y+10,5,1,sc); px(X(8),y+12,1,2,sc); px(X(10),y+12,1,2,sc);
-  // stubby arms out for hugs
-  px(X(0),y+8,4,6,P.skin); px(X(14),y+8,4,6,P.skin);
-  // big kid head
+  // arms by pose
+  if(state==='throw'){ px(X(14),y+6,7,4,P.skin); px(X(0),y+9,4,5,P.skin); }
+  else if(state==='cheer'||state==='hug'){ px(X(0),y+6,4,6,P.skin); px(X(14),y+6,4,6,P.skin); }
+  else { px(X(0),y+8,4,6,P.skin); px(X(14),y+8,4,6,P.skin); }
+  // big kid head + brown hair
   px(X(4),y-1,11,9,P.skin);
   px(X(4),y-3,11,3,'#7a5a3a');
   px(X(7),y+2,1,1,'#111'); px(X(11),y+2,1,1,'#111');
-  px(X(7),y+5,5,1,'#a03040');
-  if(boss.taunt>0 && !boss.defeated) speechBubble(sx-6,y-16, boss.line);
+  // mischievous grin
+  px(X(7),y+5,5,1,'#a03040'); px(X(8),y+5,1,1,'#fff');
+}
+function drawJordan(){ // Emma-mode boss
+  var sx=boss.x-world.scrollX, sy=boss.y;
+  var flash=boss.inv>0 && (Math.floor(blinkT*20)%2===0);
+  drawKidJordan(sx, sy, boss.dir, 'idle', 0, flash);
+  if(boss.taunt>0 && !boss.defeated) speechBubble(sx-6, sy-16, boss.line);
   if(!boss.defeated){
     var bx0=86, bw=VW-8-bx0; px(bx0,7,bw,9,P.black); px(bx0+1,8,bw-2,7,P.hpBg);
     px(bx0+1,8,(bw-2)*Math.max(0,boss.hp)/boss.maxHp,7,P.hp);
     g.fillStyle=P.white; g.font='7px monospace'; g.textAlign='center'; g.textBaseline='top'; gtext('JORDAN (only 7 for so long)', bx0+bw/2, 17);
   }
+}
+/* ---- Jordan-mode sprites ---- */
+function drawOgre(e){
+  var sx=e.x-world.scrollX, sy=e.y; if(sx<-24||sx>VW+24) return;
+  var flip=e.face<0; function X(x){ return flip?(sx+20-x):(sx+x); }
+  var wob=Math.sin(e.walkT*5)*1|0; var y=sy+wob;
+  var G='#5fa03a', Gd='#4a7d2c';
+  px(X(4),y+20,5,6,Gd); px(X(11),y+20,5,6,Gd);
+  px(X(3),y+25,7,2,'#3a2a1a'); px(X(11),y+25,7,2,'#3a2a1a');
+  px(X(2),y+10,16,12,'#8a6a3a');       // brown tunic
+  px(X(4),y+12,12,7,G);                // green belly
+  px(X(0),y+11,3,8,G); px(X(17),y+11,3,8,G);
+  px(X(4),y+1,12,10,G);                // head
+  px(X(2),y+3,2,3,G); px(X(16),y+3,2,3,G); // small round ears
+  px(X(6),y+3,3,1,Gd); px(X(11),y+3,3,1,Gd); // brow
+  px(X(6),y+4,2,2,'#fff'); px(X(12),y+4,2,2,'#fff'); px(X(7),y+5,1,1,'#111'); px(X(12),y+5,1,1,'#111');
+  px(X(6),y+8,8,2,'#6a8f3a'); px(X(7),y+9,1,2,'#fff'); px(X(12),y+9,1,2,'#fff'); // underbite tusks
+}
+function drawTony(){
+  var sx=boss.x-world.scrollX, sy=boss.y; var flip=boss.dir<0; function X(x){ return flip?(sx+22-x):(sx+x); }
+  var bob=Math.sin(boss.t*6)*1|0; var y=sy+bob;
+  var flash=boss.inv>0 && (Math.floor(blinkT*20)%2===0);
+  px(X(5),y+24,6,10,'#3a3f52'); px(X(12),y+24,6,10,'#3a3f52');
+  px(X(4),y+33,8,2,'#111'); px(X(12),y+33,8,2,'#111');
+  px(X(4),y+12,15,13, flash?'#fff':'#d86a2a'); // tank top
+  px(X(0),y+12,4,9,P.skin); px(X(19),y+12,4,9,P.skin); // buff arms
+  px(X(6),y+2,11,10,P.skin);
+  px(X(5),y+1,13,3,'#b03030'); px(X(4),y+3,3,2,'#b03030'); // backwards cap
+  px(X(8),y+5,2,1,'#111'); px(X(13),y+5,2,1,'#111');
+  px(X(9),y+9,5,1,'#7a2a2a'); // scowl
+  if(boss.taunt>0 && !boss.defeated) speechBubble(sx-6, sy-16, boss.line);
+  if(!boss.defeated){ var bx0=86, bw=VW-8-bx0; px(bx0,7,bw,9,P.black); px(bx0+1,8,bw-2,7,P.hpBg); px(bx0+1,8,(bw-2)*Math.max(0,boss.hp)/boss.maxHp,7,P.hp); g.fillStyle=P.white; g.font='7px monospace'; g.textAlign='center'; g.textBaseline='top'; gtext('TONY (school bully)', bx0+bw/2, 17); }
+}
+function drawStruct(st){
+  var x=st.x-world.scrollX; if(x<-70||x>VW+70) return;
+  var jx=(st.shk>0)?((Math.random()*2-1)*2|0):0;
+  if(st.kind==='tower'){
+    if(!st.dead){ px(x-14+jx,GROUND-18,4,18,'#8a9098'); px(x+10+jx,GROUND-18,4,18,'#8a9098'); px(x-14+jx,GROUND-10,28,3,'#6a7078');
+      px(x-16+jx,GROUND-40,32,22,'#c04040'); px(x-16+jx,GROUND-40,32,4,'#e06060');
+      g.fillStyle=P.white; g.font='6px monospace'; g.textAlign='center'; g.textBaseline='middle'; gtext('H2O', x+jx, GROUND-29); }
+    else { px(x-18,GROUND-6,36,6,'#7a8088'); px(x-10,GROUND-10,20,4,'#9aa0a8'); px(x-24,GROUND-3,48,3,'#5aa0d0'); }
+  } else if(st.kind==='ship'){
+    if(!st.dead){ px(x-24,GROUND-14+jx,48,10,'#b03030'); px(x-24,GROUND-6,48,4,'#7a2020'); px(x-8,GROUND-30+jx,3,18,'#8a6a3a'); px(x-13,GROUND-30+jx,10,8,'#eee'); px(x+6,GROUND-22+jx,14,8,'#6a7078'); }
+    else { px(x-20,GROUND-2,40,3,'#3a6a90'); px(x-6,GROUND-8,12,6,'#b03030'); px(x+10,GROUND-4,8,2,'#8a6a3a'); }
+  } else { // bridge
+    if(!st.dead){ px(x-30,GROUND-16+jx,60,5,'#9a6a3a'); px(x-30,GROUND-11,60,2,'#6a4a2a'); px(x-26,GROUND-11,3,11,'#6a4a2a'); px(x+23,GROUND-11,3,11,'#6a4a2a'); px(x-10,GROUND-22+jx,20,6,'#8a5a2a'); }
+    else { px(x-30,GROUND-4,10,4,'#6a4a2a'); px(x+20,GROUND-4,10,4,'#6a4a2a'); px(x-6,GROUND-2,12,2,'#5aa0d0'); }
+  }
+}
+function drawIpad(){
+  var x=IPAD_X-world.scrollX; if(x<-30||x>VW+30) return; var y=GROUND;
+  px(x-6,y-10,12,10,'#c9b8a8'); px(x-8,y-2,16,2,'#98897a');
+  px(x-7,y-26,14,18,'#111'); px(x-5,y-24,10,14,'#3aa0e0'); px(x-4,y-23,8,12,'#7fd0ff');
+  px(x-9,y-28,1,1,P.ui); px(x+8,y-24,1,1,P.ui);
+  g.fillStyle=P.ui; g.font='6px monospace'; g.textAlign='center'; g.textBaseline='bottom'; gtext('THE iPAD', x, y-28);
+}
+function drawWhoopie(pr){ var x=pr.x-world.scrollX,y=pr.y; g.save(); g.translate(x,y); g.rotate(pr.rot); px(-5,-3,10,6,'#ff7fb0'); px(-5,-1,10,2,'#e05f90'); px(-2,-4,4,2,'#ff9ec8'); g.restore(); }
+function drawTonyPr(pr){ var x=pr.x-world.scrollX,y=pr.y; g.save(); g.translate(x,y); g.rotate(pr.rot);
+  if(pr.type==='bottle'){ px(-2,-5,4,10,'#7fbfe0'); px(-2,-6,4,2,'#eee'); }
+  else { px(-5,-5,10,11,'#3a6a9a'); px(-5,-5,10,3,'#2a4a7a'); px(-2,-2,4,4,'#111'); px(-1,-8,2,3,'#2a4a7a'); }
+  g.restore(); }
+function jordanHUD(){
+  var labels=['TOWER','SHIP','BRIDGE'];
+  for(var i=0;i<3;i++){ var st=structs[i], x=8+i*54, y=18;
+    px(x,y+1,5,5, st.dead?'#2ecc40':'#333'); if(!st.dead) px(x+1,y+2,3,3,'#111');
+    g.fillStyle=st.dead?'#2ecc40':'#8a90a0'; g.font='6px monospace'; g.textAlign='left'; g.textBaseline='top'; gtext(labels[i], x+7, y);
+  }
+}
+function drawGeyserFX(){
+  if(geyserFX<=0) return; var a=Math.min(1,geyserFX*1.4);
+  g.globalAlpha=a*0.5; g.fillStyle='#7fd0ff';
+  for(var c=0;c<VW;c+=44){ var h=40+Math.sin((performance.now()/60)+c)*10; px(c+6,GROUND-h,10,h,'#7fd0ff'); px(c+6,GROUND-h,10,4,'#bfe8ff'); }
+  g.globalAlpha=1;
+}
+function drawJordanBg(){
+  var grd=g.createLinearGradient(0,0,0,GROUND); grd.addColorStop(0,P.sky); grd.addColorStop(1,P.sky2); g.fillStyle=grd; g.fillRect(0,0,VW,GROUND);
+  var cx=(-world.scrollX*0.2)%(VW+120); for(var i=-1;i<3;i++){ cloud(cx+i*160+30,26); cloud(cx+i*160+110,54); }
+  var hx=-world.scrollX*0.5;
+  for(var b=-1;b<14;b++){ var bx=hx+b*64; var bh=26+((b*37)%42); g.fillStyle='#566a92'; g.fillRect(bx,GROUND-bh,44,bh);
+    for(var wy=6; wy<bh-4; wy+=9){ for(var wx=5; wx<38; wx+=9){ g.fillStyle='#9fb2d8'; g.fillRect(bx+wx,GROUND-bh+wy,3,4); } } }
+  g.fillStyle='#7a6a4a'; g.fillRect(0,GROUND,VW,VH-GROUND); g.fillStyle='#8a7a5a'; g.fillRect(0,GROUND,VW,3);
+  for(var x=(-world.scrollX%18+18)%18; x<VW; x+=18){ g.fillStyle='#5a4a2a'; g.fillRect(x,GROUND+5,9,1); }
 }
 function drawSnackPr(pr){
   var x=pr.x-world.scrollX, y=pr.y; g.save(); g.translate(x,y); g.rotate(pr.rot);
@@ -1150,12 +1359,16 @@ function drawHUD(){
     drawCd(8, VH-26, A1_CD, 0.42, '🍩', P.ui);
     drawCd(48, VH-26, A2_CD, 2.6, '🚂', P.heart);
     emmaHUD();
+  } else if(char.id==='jordan'){
+    drawCd(8, VH-26, A1_CD, 0.5, '💨', '#8fd07a');
+    drawCd(48, VH-26, A2_CD, 3.6, '🌊', '#7fd0ff');
+    jordanHUD();
   } else {
     drawCd(8, VH-26, A1_CD, 0.85, '🐕', P.parkaHi);
     drawCd(48, VH-26, A2_CD, 2.0, '💋', P.heart);
   }
-  // progress to boss (Ronda only — Emma uses the countdown clock)
-  if(char.id!=='emma' && !boss.active){
+  // progress to boss (Ronda only — Emma & Jordan use their own HUDs)
+  if(char.id!=='emma' && char.id!=='jordan' && !boss.active){
     var pw=80, pxp=VW/2-pw/2, prog=Math.min(1,(player.x)/BOSS_TRIGGER);
     px(pxp-1,VH-23,pw+2,5,P.black); px(pxp,VH-22,pw,3,'#333'); px(pxp,VH-22,pw*prog,3,P.ui);
     px(pxp+pw-1,VH-25,2,7,P.barn); // barn/flag at end
@@ -1166,6 +1379,8 @@ function drawHUD(){
     g.fillStyle='#fff'; g.font='6px monospace'; g.textAlign='center'; g.textBaseline='bottom';
     var legend = char.id==='emma'
       ? '◄ ► MOVE    SPACE JUMP    J = SNACK    K = ETHAN    P PAUSE    M MUTE'
+      : char.id==='jordan'
+      ? '◄ ► MOVE    SPACE JUMP    J = WHOOPEE    K = GEYSER    P PAUSE    M MUTE'
       : '◄ ► MOVE    SPACE JUMP    J = SOOKIE    K = LOVE    P PAUSE    M MUTE';
     gtext(legend, VW/2, VH-2);
   }
@@ -1260,6 +1475,8 @@ function drawSelect(){
       // portrait
       if(r.id==='emma'){
         drawEmma(x+cw/2-10, y+22, 1, 'idle', performance.now()/300);
+      } else if(r.id==='jordan'){
+        drawKidJordan(x+cw/2-9, y+30, 1, 'idle', performance.now()/300, false);
       } else {
         drawRonda(x+cw/2-10, y+26, 1, 'idle', performance.now()/300);
         drawDog(x+cw/2+8, y+44, -1,false);
@@ -1295,6 +1512,20 @@ function drawWin(){
     if(Math.floor(t0*2)%2===0){ g.fillStyle=P.white; g.font='7px monospace'; gtext('TAP TO PLAY AGAIN', VW/2, VH-24); }
     return;
   }
+  if(char.id==='jordan'){
+    drawJordanBg();
+    drawIpad();
+    particles.forEach(drawParticle);
+    drawKidJordan(IPAD_X-world.scrollX-26, GROUND-26, 1, 'cheer', performance.now()/300, false);
+    g.textAlign='center'; g.textBaseline='top';
+    var tj=performance.now()/1000;
+    g.font='bold 18px monospace'; g.fillStyle=P.black; gtext('iPAD SECURED!', VW/2+2, 24); g.fillStyle=P.ui; gtext('iPAD SECURED!', VW/2, 22);
+    g.font='7px monospace'; g.fillStyle=P.white; gtext('Tower down. Ship sunk. Bridge wrecked. Tony rage-quit.', VW/2, 50);
+    g.fillStyle=P.ui; gtext('Maximum chaos achieved. No timeout today.', VW/2, 62);
+    g.fillStyle=P.ui; g.font='bold 9px monospace'; gtext('FINAL SCORE: '+score, VW/2, 78);
+    if(Math.floor(tj*2)%2===0){ g.fillStyle=P.white; g.font='7px monospace'; gtext('TAP TO PLAY AGAIN', VW/2, VH-24); }
+    return;
+  }
   drawSky(); drawGround();
   drawTodd(); // shows defeated todd sitting
   drawRonda(player.x-world.scrollX, player.y, player.face, 'hug', performance.now()/300);
@@ -1326,6 +1557,17 @@ function drawLose(){
     if(Math.floor(performance.now()/500)%2===0){ g.fillStyle=P.white; g.font='7px monospace'; gtext('TAP TO TRY AGAIN', VW/2, VH-24); }
     return;
   }
+  if(char.id==='jordan'){
+    drawJordanBg();
+    g.textAlign='center'; g.textBaseline='top';
+    g.font='bold 16px monospace'; g.fillStyle=P.black; gtext('TIMEOUT!', VW/2+2, 40);
+    g.fillStyle=P.red; gtext('TIMEOUT!', VW/2, 38);
+    g.font='7px monospace'; g.fillStyle=P.white;
+    gtext('They caught Jordan and took the iPad away. Brutal.', VW/2, 66);
+    g.fillStyle=P.ui; g.font='bold 9px monospace'; gtext('SCORE: '+score, VW/2, 82);
+    if(Math.floor(performance.now()/500)%2===0){ g.fillStyle=P.white; g.font='7px monospace'; gtext('TAP TO TRY AGAIN', VW/2, VH-24); }
+    return;
+  }
   drawSky(); drawGround();
   g.textAlign='center'; g.textBaseline='top';
   g.font='bold 16px monospace'; g.fillStyle=P.black; gtext('CORNERED!', VW/2+2, 40);
@@ -1350,6 +1592,16 @@ function drawPlay(){
     var pInvE = player.inv>0 && Math.floor(blinkT*20)%2===0;
     if(!pInvE) drawEmma(player.x-world.scrollX, player.y, player.face, player.state, player.anim);
     if(anxFX>0){ g.globalAlpha=anxFX*0.25; g.fillStyle='#7fd7ff'; g.fillRect(0,0,VW,GROUND); g.globalAlpha=1; }
+  } else if(char.id==='jordan'){
+    drawJordanBg();
+    for(var si=0;si<structs.length;si++) drawStruct(structs[si]);
+    drawIpad();
+    for(var i=0;i<enemies.length;i++){ if(!enemies[i].dead) drawOgre(enemies[i]); }
+    if(boss.active && !boss.defeated) drawTony();
+    projectiles.forEach(function(pr){ if(pr.type==='whoopie') drawWhoopie(pr); else drawTonyPr(pr); });
+    var pInvJ = player.inv>0 && Math.floor(blinkT*20)%2===0;
+    if(!pInvJ) drawKidJordan(player.x-world.scrollX, player.y, player.face, player.state, player.anim, false);
+    drawGeyserFX();
   } else {
     drawSky(); drawGround();
     for(var i=0;i<enemies.length;i++){ if(!enemies[i].dead) drawEnemy(enemies[i]); }
@@ -1407,6 +1659,7 @@ function setControlLabels(c){
   var b1=document.getElementById('bA1'), b2=document.getElementById('bA2');
   if(!b1||!b2) return;
   if(c.id==='emma'){ b1.innerHTML='🍩<span class="cap">SNACK</span>'; b2.innerHTML='🚂<span class="cap">ETHAN</span>'; }
+  else if(c.id==='jordan'){ b1.innerHTML='💨<span class="cap">WHOOPEE</span>'; b2.innerHTML='🌊<span class="cap">GEYSER</span>'; }
   else { b1.innerHTML='🐕<span class="cap">SOOKIE</span>'; b2.innerHTML='💋<span class="cap">LOVE</span>'; }
 }
 function tryStart(){
