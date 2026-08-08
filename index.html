@@ -61,7 +61,7 @@
    Single-file, canvas 2D, procedural pixel art + chiptune.
    Deploy: this is index.html at repo root (GitHub Pages).
    ============================================================ */
-var BUILD = "1786177067"; // replaced at deploy time (unix ts)
+var BUILD = "1786195932"; // replaced at deploy time (unix ts)
 
 /* -------------------- Self-updater (matches your deploy flow) -------------------- */
 (function(){
@@ -181,6 +181,11 @@ var P = {
 
 /* tiny pixel helper */
 function px(x,y,w,h,col){ g.fillStyle=col; g.fillRect(x|0,y|0,w|0,h|0); }
+/* Correct horizontal mirror for a sprite box [sx, sx+W]: flips whole shapes
+   (accounts for each rect's width, unlike per-coordinate mirroring). Draw with
+   UNFLIPPED coords (sx+x) between beginFlip()/endFlip(). */
+function beginFlip(sx,W,face){ if(face<0){ g.save(); g.translate(2*sx+W,0); g.scale(-1,1); return true; } return false; }
+function endFlip(flipped){ if(flipped) g.restore(); }
 
 /* ============================================================
    16-BIT HELPERS — shading, gradients, dithering, shadows, vignette
@@ -886,8 +891,8 @@ function onLose(){ STATE='LOSE'; SFX.lose(); mus.on=false; }
    DRAW  — sprites
    ============================================================ */
 function drawRonda(sx,sy,face,state,anim){
-  var f=face; var flip=f<0;
-  function X(x){ return flip? (sx+20-x) : (sx+x); }
+  var flipped=beginFlip(sx,20,face);
+  function X(x){ return sx+x; }
   var bob = (state==='walk')? (Math.sin(anim)*1.5|0) : 0;
   var y=sy+bob;
   // legs
@@ -917,9 +922,10 @@ function drawRonda(sx,sy,face,state,anim){
   px(X(9),y+9,3,1,P.tongue); // smile
   // blush when hugging
   if(state==='hug'){ px(X(7),y+8,1,1,P.ear); px(X(12),y+8,1,1,P.ear); }
+  endFlip(flipped);
 }
 function drawDog(sx,sy,face,inArms){
-  var flip=face<0; function X(x){ return flip?(sx+24-x):(sx+x); }
+  var flipped=beginFlip(sx,24,face); function X(x){ return sx+x; }
   var y=sy;
   if(inArms){
     // compact happy pup
@@ -929,6 +935,7 @@ function drawDog(sx,sy,face,inArms){
     px(X(15),y+3,3,3,P.dog); // snout
     px(X(10),y+3,1,1,P.dogEye); px(X(13),y+3,1,1,P.dogEye);
     px(X(16),y+6,2,1,P.tongue);
+    endFlip(flipped);
     return;
   }
   // body
@@ -948,9 +955,10 @@ function drawDog(sx,sy,face,inArms){
   px(X(19),y-2,2,2,P.dogEye); px(X(20),y-2,1,1,P.white);
   // open mouth + tongue
   px(X(22),y+3,4,2,P.tongue);
+  endFlip(flipped);
 }
 function drawEnemy(e){
-  var sx=e.x-world.scrollX, sy=e.y; var flip=e.face<0; function X(x){ return flip?(sx+18-x):(sx+x); }
+  var sx=e.x-world.scrollX, sy=e.y; var flipped=beginFlip(sx,18,e.face); function X(x){ return sx+x; }
   var bob=Math.sin(e.walkT*8)*1.5|0; var y=sy+bob;
   // legs
   px(X(4),y+24,4,6,P.ePants); px(X(10),y+24,4,6,P.ePants);
@@ -969,6 +977,7 @@ function drawEnemy(e){
   px(X(6),y+5,2,1,P.black); px(X(10),y+5,2,1,P.black); // brows
   px(X(7),y+9,4,1,P.black); // frown/yell
   px(X(8),y+9,2,2,P.red); // open yelling mouth
+  endFlip(flipped);
   // speech bubble
   if(e.active){ speechBubble(sx-6, y-14, e.line); }
 }
@@ -980,7 +989,7 @@ function speechBubble(x,y,txt){
   gtext(txt, x+3, y+3);
 }
 function drawTodd(){
-  var sx=boss.x-world.scrollX, sy=boss.y; var flip=boss.dir<0; function X(x){ return flip?(sx+26-x):(sx+x); }
+  var sx=boss.x-world.scrollX, sy=boss.y; var flipped=beginFlip(sx,26,boss.dir); function X(x){ return sx+x; }
   var bob=Math.sin(boss.t*6+performance.now()*0.003)*1|0;
   var y=sy+bob;
   var flash = boss.inv>0 && (Math.floor(blinkT*20)%2===0);
@@ -1006,6 +1015,7 @@ function drawTodd(){
   // mouth: open + cackling while taunting, else stern
   if(boss.taunt>0 && !boss.defeated){ px(X(11),y+8,4,3,P.black); px(X(12),y+9,2,1,P.red); }
   else px(X(11),y+9,4,1,P.skinD);
+  endFlip(flipped);
   // taunt bubble
   if(boss.taunt>0 && !boss.defeated){ speechBubble(sx-4,y-16, boss.line); }
   // boss HP bar (right of the hearts so it never collides)
@@ -1043,7 +1053,7 @@ function drawParticle(p){
 
 /* ---------------- EMMA sprites ---------------- */
 function drawEmma(sx,sy,face,state,anim){
-  var flip=face<0; function X(x){ return flip?(sx+20-x):(sx+x); }
+  var flipped=beginFlip(sx,20,face); function X(x){ return sx+x; }
   var bob=(state==='walk')?(Math.sin(anim)*1.5|0):0; var y=sy+bob;
   // legs (jeans)
   px(X(5),y+26,4,8,'#3a4a80'); px(X(11),y+26,4,8,'#3a4a80');
@@ -1069,9 +1079,10 @@ function drawEmma(sx,sy,face,state,anim){
   px(X(8),y+6,1,1,'#111'); px(X(12),y+6,1,1,'#111');
   if(state==='cry'){ px(X(8),y+8,1,2,'#7fd7ff'); px(X(12),y+8,1,2,'#7fd7ff'); px(X(9),y+9,3,2,'#a03040'); }
   else px(X(9),y+9,3,1,'#a03040');
+  endFlip(flipped);
 }
 function drawEthan(sx,sy,face){
-  var flip=face<0; function X(x){ return flip?(sx+18-x):(sx+x); }
+  var flipped=beginFlip(sx,18,face); function X(x){ return sx+x; }
   var y=sy;
   px(X(5),y+24,3,8,'#33447a'); px(X(10),y+24,3,8,'#33447a');
   px(X(4),y+31,5,2,'#111'); px(X(10),y+31,5,2,'#111');
@@ -1086,6 +1097,7 @@ function drawEthan(sx,sy,face){
   px(X(6),y+10,6,1,'#8a6a4a');
   px(X(4),y+2,10,3,'#8a3b3b'); px(X(3),y+4,5,2,'#8a3b3b'); px(X(8),y+2,3,2,'#d8c8a0');
   px(X(7),y+6,1,1,'#111'); px(X(10),y+6,1,1,'#111'); px(X(8),y+8,3,1,'#a03040');
+  endFlip(flipped);
 }
 function drawEthanTrain(){
   if(!ethan.active) return;
@@ -1106,7 +1118,7 @@ function drawEthanTrain(){
 }
 function drawCreepy(e){
   var sx=e.x-world.scrollX, sy=e.y; if(sx<-20||sx>VW+20) return;
-  var flip=e.face<0; function X(x){ return flip?(sx+14-x):(sx+x); }
+  var flipped=beginFlip(sx,14,e.face); function X(x){ return sx+x; }
   var wob=Math.sin(e.walkT*6+e.wob)*1|0; var y=sy+wob;
   var body=e.tone?'#9aa0b0':'#b0a89a';
   px(X(3),y+12,3,4,'#333'); px(X(8),y+12,3,4,'#333');
@@ -1117,9 +1129,10 @@ function drawCreepy(e){
   px(X(5),y+3,1,1,'#111'); px(X(9),y+3,1,1,'#111');
   px(X(4),y+5,6,1,'#3a1a1a');
   px(X(5),y+5,1,1,'#fff'); px(X(7),y+5,1,1,'#fff'); px(X(9),y+5,1,1,'#fff');
+  endFlip(flipped);
 }
 function drawKidJordan(sx,sy,face,state,anim,flash){
-  var flip=face<0; function X(x){ return flip?(sx+18-x):(sx+x); }
+  var flipped=beginFlip(sx,18,face); function X(x){ return sx+x; }
   var bob=(state==='walk')?(Math.sin(anim)*1|0):0; var y=sy+bob;
   // legs + sneakers
   px(X(6),y+18,4,5,P.skin); px(X(10),y+18,4,5,P.skin);
@@ -1140,6 +1153,7 @@ function drawKidJordan(sx,sy,face,state,anim,flash){
   px(X(7),y+2,1,1,'#111'); px(X(11),y+2,1,1,'#111');
   // mischievous grin
   px(X(7),y+5,5,1,'#a03040'); px(X(8),y+5,1,1,'#fff');
+  endFlip(flipped);
 }
 function drawJordan(){ // Emma-mode boss
   var sx=boss.x-world.scrollX, sy=boss.y;
@@ -1155,7 +1169,7 @@ function drawJordan(){ // Emma-mode boss
 /* ---- Jordan-mode sprites ---- */
 function drawOgre(e){
   var sx=e.x-world.scrollX, sy=e.y; if(sx<-24||sx>VW+24) return;
-  var flip=e.face<0; function X(x){ return flip?(sx+20-x):(sx+x); }
+  var flipped=beginFlip(sx,20,e.face); function X(x){ return sx+x; }
   var wob=Math.sin(e.walkT*5)*1|0; var y=sy+wob;
   var G='#5fa03a', Gd='#4a7d2c';
   px(X(4),y+20,5,6,Gd); px(X(11),y+20,5,6,Gd);
@@ -1168,9 +1182,10 @@ function drawOgre(e){
   px(X(6),y+3,3,1,Gd); px(X(11),y+3,3,1,Gd); // brow
   px(X(6),y+4,2,2,'#fff'); px(X(12),y+4,2,2,'#fff'); px(X(7),y+5,1,1,'#111'); px(X(12),y+5,1,1,'#111');
   px(X(6),y+8,8,2,'#6a8f3a'); px(X(7),y+9,1,2,'#fff'); px(X(12),y+9,1,2,'#fff'); // underbite tusks
+  endFlip(flipped);
 }
 function drawTony(){
-  var sx=boss.x-world.scrollX, sy=boss.y; var flip=boss.dir<0; function X(x){ return flip?(sx+22-x):(sx+x); }
+  var sx=boss.x-world.scrollX, sy=boss.y; var flipped=beginFlip(sx,22,boss.dir); function X(x){ return sx+x; }
   var bob=Math.sin(boss.t*6)*1|0; var y=sy+bob;
   var flash=boss.inv>0 && (Math.floor(blinkT*20)%2===0);
   px(X(5),y+24,6,10,'#3a3f52'); px(X(12),y+24,6,10,'#3a3f52');
@@ -1181,6 +1196,7 @@ function drawTony(){
   px(X(5),y+1,13,3,'#b03030'); px(X(4),y+3,3,2,'#b03030'); // backwards cap
   px(X(8),y+5,2,1,'#111'); px(X(13),y+5,2,1,'#111');
   px(X(9),y+9,5,1,'#7a2a2a'); // scowl
+  endFlip(flipped);
   if(boss.taunt>0 && !boss.defeated) speechBubble(sx-6, sy-16, boss.line);
   if(!boss.defeated){ var bx0=86, bw=VW-8-bx0; px(bx0,7,bw,9,P.black); px(bx0+1,8,bw-2,7,P.hpBg); px(bx0+1,8,(bw-2)*Math.max(0,boss.hp)/boss.maxHp,7,P.hp); g.fillStyle=P.white; g.font='7px monospace'; g.textAlign='center'; g.textBaseline='top'; gtext('TONY (school bully)', bx0+bw/2, 17); }
 }
