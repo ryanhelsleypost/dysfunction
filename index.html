@@ -61,7 +61,7 @@
    Single-file, canvas 2D, procedural pixel art + chiptune.
    Deploy: this is index.html at repo root (GitHub Pages).
    ============================================================ */
-var BUILD = "1786217887"; // replaced at deploy time (unix ts)
+var BUILD = "1786218271"; // replaced at deploy time (unix ts)
 
 /* -------------------- Self-updater (matches your deploy flow) -------------------- */
 (function(){
@@ -846,14 +846,18 @@ function onJordanWin(){ STATE='WIN'; winTimer=0; SFX.win(); mus.on=false;
    PRESLEY MODULE — milk goats to fill the pail; family swarms
    ============================================================ */
 function makeGoat(x){ return { x:x, y:GROUND-16, w:18, h:16, dir:(Math.random()<0.5?-1:1), walkT:Math.random()*6, cd:0 }; }
-function makePEnemy(kind,x,dir){ var h = kind==='sookie'?14 : (kind==='todd'?40:34);
-  return { kind:kind, x:x, y:GROUND-h, w:(kind==='sookie'?24:20), h:h, dir:dir, face:dir, walkT:Math.random()*6, anim:0, hp:(kind==='todd'?3:2), ko:false, koT:0 }; }
+function makePEnemy(kind,x,dir){
+  var coat = kind==='horseW'?'#e8e6de' : (kind==='horseG'?'#9a9aa0' : null);
+  var h = kind==='sookie'?14 : (kind==='todd'?40 : (coat?30:34));
+  var w = kind==='sookie'?24 : (coat?30:20);
+  return { kind:kind, x:x, y:GROUND-h, w:w, h:h, dir:dir, face:dir, walkT:Math.random()*6, anim:0, hp:(kind==='todd'?3:(coat?3:2)), ko:false, koT:0, coat:coat };
+}
 function presleySetup(){
   world.len=3000; player.w=20; player.h=32; player.y=GROUND-32; // a bit shorter than Ronda
   goats=[]; var gx=360; while(gx<world.len-220){ goats.push(makeGoat(gx)); gx += 150+Math.random()*130; }
   milks=[]; pail=0; pailMax=16;
   friday={ active:false, mode:'', x:0, y:0, t:0, cx:0, zapped:false };
-  enemies=[]; presleySpawnT=1.4; mus.boss=false;
+  enemies=[]; presleySpawnT=2.5; mus.boss=false;
 }
 function doCheese(){
   if(A1_CD>0) return; A1_CD=0.55; player.state='throw'; player.throwT=0.18;
@@ -879,10 +883,10 @@ function updateFriday(dt){
     if(friday.t>0.7){ friday.mode='cauldron'; friday.t=0; friday.cx=player.x + player.face*20; SFX.magic(); }
   } else if(friday.mode==='cauldron'){
     if(friday.t<0.6 && Math.random()<0.8) particles.push(makeP(friday.cx+(Math.random()*16-8), GROUND-16,'magic'));
-    if(friday.t>0.5 && !friday.zapped){ friday.zapped=true; var R=74;
+    if(friday.t>0.5 && !friday.zapped){ friday.zapped=true; var R=104, cx=player.x+player.w/2;
       for(var i=0;i<enemies.length;i++){ var e=enemies[i]; if(e.ko) continue;
-        if(Math.abs(e.x-friday.cx)<R){ e.ko=true; e.koT=0; addScore(120,e.x,e.y-10); for(var p=0;p<6;p++) particles.push(makeP(e.x+8,e.y,'magic')); } }
-      shake=6; addFloat('\u2726 MAGIC \u2726', friday.cx, GROUND-32, '#c39bff', 12); }
+        if(Math.abs((e.x+e.w/2)-cx)<R){ e.ko=true; e.koT=0; addScore(120,e.x,e.y-10); for(var p=0;p<7;p++) particles.push(makeP(e.x+e.w/2,e.y+6,'magic')); } }
+      shake=6; addFloat('\u2726 MAGIC \u2726', cx, GROUND-32, '#c39bff', 12); }
     if(friday.t>1.2){ friday.mode='leave'; friday.t=0; }
   } else { friday.x -= player.face*150*dt; if(friday.t>1.0) friday.active=false; }
 }
@@ -890,19 +894,25 @@ function onPresleyWin(){ STATE='WIN'; winTimer=0; SFX.win(); mus.on=false;
   for(var i=0;i<30;i++) particles.push(makeP(player.x+10, player.y, 'heart')); }
 function presleyEntities(dt){
   updateFriday(dt);
-  // enemy waves — Ronda / Todd / Sookie keep coming
+  // enemy waves — one of each kind at a time; a kind only returns once its instance is gone
   presleySpawnT-=dt;
-  var alive=0; for(var a=0;a<enemies.length;a++){ if(!enemies[a].ko) alive++; }
-  var cap=3+Math.min(3,(pail/5)|0);
-  if(presleySpawnT<=0 && alive<cap){ presleySpawnT=2.2-Math.min(1.3,pail*0.06);
-    var kinds=['ronda','todd','sookie'], k=kinds[(Math.random()*3)|0], fromLeft=Math.random()<0.5;
-    var ex=fromLeft? world.scrollX-24 : world.scrollX+VW+24;
-    enemies.push(makePEnemy(k, ex, fromLeft?1:-1)); }
+  var present={}, alive=0;
+  for(var a=0;a<enemies.length;a++){ if(!enemies[a].ko){ present[enemies[a].kind]=true; alive++; } }
+  var cap=3;
+  if(presleySpawnT<=0 && alive<cap){
+    presleySpawnT = 3.6 - Math.min(1.2, pail*0.05);   // slower repeater
+    var kinds=['ronda','todd','sookie','horseW','horseG'];
+    var avail=[]; for(var ki=0;ki<kinds.length;ki++){ if(!present[kinds[ki]]) avail.push(kinds[ki]); }
+    if(avail.length){ var k=avail[(Math.random()*avail.length)|0], fromLeft=Math.random()<0.5;
+      var ex=fromLeft? world.scrollX-30 : world.scrollX+VW+30;
+      enemies.push(makePEnemy(k, ex, fromLeft?1:-1)); }
+  }
   // enemies chase / KO decay
   for(var i=enemies.length-1;i>=0;i--){ var e=enemies[i];
     if(e.ko){ e.koT+=dt; if(e.koT>1.3){ enemies.splice(i,1); } continue; }
     e.walkT+=dt; e.anim+=dt*10; var dir=(player.x<e.x)?-1:1; e.face=dir;
-    var spd=e.kind==='sookie'?70:(e.kind==='todd'?36:54); e.x += dir*spd*dt;
+    var spd=e.kind==='sookie'?70:(e.kind==='todd'?36:((e.coat)?46:54));
+    e.x += dir*spd*dt;
     if(player.inv<=0 && aabb(player.x,player.y,player.w,player.h,e.x,e.y,e.w,e.h)) hurtPlayer(1, e.x<player.x?1:-1);
   }
   // goats wander + flee from Presley
@@ -1371,13 +1381,38 @@ function drawCheese(pr){
   px(x-7,y-4,14,9,'#f0a83b'); px(x-9,y-1,5,5,'#e89526'); px(x+5,y-2,6,6,'#f0a83b');
   px(x-5,y-6,8,4,'#f6be5a'); px(x-7,y-4,14,2,'#f8c46a');
 }
+function drawHorse(e){
+  var sx=e.x-world.scrollX, sy=e.y; if(sx<-40||sx>VW+40) return;
+  var flipped=beginFlip(sx,30,e.face); function X(x){ return sx+x; }
+  var wob=Math.sin(e.walkT*6)*1|0; var y=sy+wob;
+  var coat=e.coat, cH=shade(coat,1.12), cD=shade(coat,0.78), OL='#2a2620';
+  var stp=Math.sin(e.walkT*6);
+  // outline
+  px(X(3),y+6,22,10,OL); px(X(20),y-3,10,11,OL); px(X(4),y+15,5,13,OL); px(X(18),y+15,5,13,OL);
+  // legs (slight gallop)
+  var l1=stp>0?1:0, l2=stp<0?1:0;
+  px(X(5),y+15,3,11-l1,cD); px(X(10),y+16,3,10,cD); px(X(17),y+15,3,11-l2,cD); px(X(21),y+16,3,10,cD);
+  px(X(5),y+25-l1,3,1,'#2a2620'); px(X(21),y+25-l2,3,1,'#2a2620');
+  // body
+  px(X(4),y+7,20,9,coat); px(X(4),y+7,20,2,cH); px(X(4),y+13,20,2,cD);
+  // tail
+  px(X(1),y+7,3,10,cD); px(X(2),y+9,2,9,shade(coat,0.65));
+  // neck + head
+  px(X(20),y,7,10,coat); px(X(20),y,7,2,cH);
+  px(X(24),y-3,5,7,coat); px(X(28),y+1,2,3,cD);   // head + muzzle
+  px(X(19),y-2,3,11,shade(coat,0.6));             // mane
+  px(X(24),y-5,2,3,coat);                          // ear
+  px(X(26),y-1,1,1,'#20160e');                     // eye
+  endFlip(flipped);
+}
 function drawPresleyEnemy(e){
-  var sx=e.x-world.scrollX, sy=e.y; if(sx<-30||sx>VW+30) return;
+  var sx=e.x-world.scrollX, sy=e.y; if(sx<-40||sx>VW+40) return;
   if(e.ko) g.globalAlpha=0.55;
   var dy=e.ko?8:0, st=e.ko?'idle':'walk';
   if(e.kind==='ronda') drawRonda(sx, sy+dy, e.face, st, e.anim);
   else if(e.kind==='sookie') drawDog(sx, sy+dy, e.face, false);
-  else drawToddBody(sx, sy+dy, e.face, false, false);
+  else if(e.kind==='todd') drawToddBody(sx, sy+dy, e.face, false, false);
+  else { var oy=e.y; e.y+=dy; drawHorse(e); e.y=oy; }
   g.globalAlpha=1;
   if(e.ko){ px(sx+3,sy-4,1,1,'#ffd23b'); px(sx+9,sy-6,1,1,'#ffd23b'); px(sx+6,sy-8,1,1,'#fff'); }
 }
