@@ -61,7 +61,7 @@
    Single-file, canvas 2D, procedural pixel art + chiptune.
    Deploy: this is index.html at repo root (GitHub Pages).
    ============================================================ */
-var BUILD = "1786175589"; // replaced at deploy time (unix ts)
+var BUILD = "1786176252"; // replaced at deploy time (unix ts)
 
 /* -------------------- Self-updater (matches your deploy flow) -------------------- */
 (function(){
@@ -181,6 +181,28 @@ var P = {
 
 /* tiny pixel helper */
 function px(x,y,w,h,col){ g.fillStyle=col; g.fillRect(x|0,y|0,w|0,h|0); }
+
+/* ============================================================
+   16-BIT HELPERS — shading, gradients, dithering, shadows, vignette
+   ============================================================ */
+function _hx(h){ if(h[0]==='#')h=h.slice(1); if(h.length===3)h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2]; var n=parseInt(h,16); return [(n>>16)&255,(n>>8)&255,n&255]; }
+function shade(hex,f){ var c=_hx(hex); function q(v){ return Math.max(0,Math.min(255, Math.round(v*f)))|0; } return 'rgb('+q(c[0])+','+q(c[1])+','+q(c[2])+')'; }
+function mix(a,b,t){ var x=_hx(a),y=_hx(b); function q(i){ return Math.round(x[i]+(y[i]-x[i])*t)|0; } return 'rgb('+q(0)+','+q(1)+','+q(2)+')'; }
+// smooth vertical gradient (reads richer/16-bit vs flat fills)
+function vgrad(x,y,w,h,c1,c2){ var gr=g.createLinearGradient(0,y,0,y+h); gr.addColorStop(0,c1); gr.addColorStop(1,c2); g.fillStyle=gr; g.fillRect(x,y,w,h); }
+// 2px checker dither band between two colors — classic 16-bit sky shading
+function ditherBand(x,y,w,h,c1,c2){ g.fillStyle=c1; g.fillRect(x,y,w,h); g.fillStyle=c2; for(var yy=0;yy<h;yy+=2){ for(var xx=((yy/2)&1)*2; xx<w; xx+=4){ g.fillRect(x+xx,y+yy,2,2); } } }
+// soft ground shadow ellipse under an entity (world x,w)
+function groundShadow(worldX, w, groundY){ var sx=worldX-world.scrollX; if(sx<-40||sx>VW+40) return; g.globalAlpha=0.22; g.fillStyle='#000'; var ww=w+6, hh=Math.max(3,(w*0.28)|0); g.beginPath(); if(g.ellipse) g.ellipse(sx+w/2, (groundY||GROUND)+1, ww/2, hh/2, 0,0,Math.PI*2); else g.arc(sx+w/2,(groundY||GROUND)+1,ww/2,0,Math.PI*2); g.fill(); g.globalAlpha=1; }
+var _vig=null;
+function vignette(){
+  try{
+    if(!_vig){ var gr=g.createRadialGradient(VW/2,VH/2,VH*0.35, VW/2,VH/2,VH*0.85); gr.addColorStop(0,'rgba(0,0,0,0)'); gr.addColorStop(1,'rgba(0,0,10,0.28)'); _vig=gr; }
+    g.fillStyle=_vig; g.fillRect(0,0,VW,VH);
+  }catch(e){
+    g.globalAlpha=0.18; g.fillStyle='#000'; g.fillRect(0,0,VW,6); g.fillRect(0,VH-8,VW,8); g.fillRect(0,0,6,VH); g.fillRect(VW-6,0,6,VH); g.globalAlpha=1;
+  }
+}
 
 /* ============================================================
    INPUT
@@ -374,7 +396,7 @@ var EM_TRIGGER=2300, EM_ARENA_L=2360, EM_ARENA_R=2500, KIA_X=2556;
 var player, dog, enemies, projectiles, particles, floats, boss, score, combo, comboTimer, shake, winTimer, blinkT, introT;
 var items, clockT, clockMax, ethan, anxT, anxFX, emmaLoseReason;
 // Jordan level
-var J_TRIGGER=2350, J_ARENA_L=2400, J_ARENA_R=2560, IPAD_X=2620;
+var J_TRIGGER=3250, J_ARENA_L=3300, J_ARENA_R=3460, IPAD_X=3520;
 var structs, geyserFX;
 
 function resetGame(){
@@ -427,17 +449,23 @@ function makeOgre(x){
   return { x:x, y:GROUND-26, w:20, h:26, hp:2, dead:false, face:-1, walkT:Math.random()*6, active:false };
 }
 function jordanSetup(){
-  world.len=2700;
-  player.w=20; player.h=26; player.y=GROUND-26; // Jordan is a shorter kid
+  world.len=3600;
+  player.w=20; player.h=26; player.y=GROUND-26;
   structs=[
-    {kind:'tower',  label:'TOWER',  x:600,  hp:3, maxHp:3, dead:false, shk:0},
-    {kind:'ship',   label:'SHIP',   x:1200, hp:3, maxHp:3, dead:false, shk:0},
-    {kind:'bridge', label:'BRIDGE', x:1780, hp:3, maxHp:3, dead:false, shk:0}
+    {kind:'tower',  label:'TOWER',  x:720,  hp:4, maxHp:4, dead:false, shk:0, hw:26, topY:GROUND-70},
+    {kind:'ship',   label:'SHIP',   x:1520, hp:4, maxHp:4, dead:false, shk:0, hw:40, topY:GROUND-48},
+    {kind:'bridge', label:'BRIDGE', x:2500, hp:6, maxHp:6, dead:false, shk:0, hw:120, topY:GROUND-100}
   ];
   geyserFX=0;
-  var gx=480;
-  while(gx < J_TRIGGER-80){ enemies.push(makeOgre(gx)); gx += 175+Math.random()*130; }
-  boss={ active:false, x:J_ARENA_R, y:GROUND-36, w:22, h:36, hp:12, maxHp:12, t:0, inv:0, dir:-1, defeated:false, taunt:0, tauntCd:1.2, line:'', scream:2.4, throwT:1.4 };
+  // many ogres across the longer level, thinning near the big structures
+  enemies=[];
+  var gx=460;
+  while(gx < J_TRIGGER-90){
+    var nearStruct = structs.some(function(s){ return Math.abs(gx-s.x)<70; });
+    if(!nearStruct) enemies.push(makeOgre(gx));
+    gx += 120 + Math.random()*90;
+  }
+  boss={ active:false, x:J_ARENA_R, y:GROUND-36, w:22, h:36, hp:14, maxHp:14, t:0, inv:0, dir:-1, defeated:false, taunt:0, tauntCd:1.2, line:'', scream:2.4, throwT:1.4 };
   mus.boss=false;
 }
 
@@ -824,10 +852,11 @@ function jordanEntities(dt){
         if(aabb(pr.x-5,pr.y-5,10,10, e2.x,e2.y,e2.w,e2.h)){ e2.hp--; SFX.fart(); for(var g0=0;g0<6;g0++) particles.push(makeP(e2.x+8,e2.y+8,'gas'));
           if(e2.hp<=0){ e2.dead=true; addScore(100,e2.x,e2.y-8); } done=true; break; } }
       if(!done){ for(var t=0;t<structs.length;t++){ var st=structs[t]; if(st.dead) continue;
-        if(Math.abs(pr.x-st.x)<26 && pr.y>GROUND-44){ st.hp--; st.shk=0.3; SFX.fart(); for(var g1=0;g1<5;g1++) particles.push(makeP(pr.x,pr.y,'gas'));
-          if(st.hp<=0){ st.dead=true; addScore(300,st.x,GROUND-30); SFX.crash(); shake=8;
-            for(var d=0;d<20;d++) particles.push(makeP(st.x+(Math.random()*40-20), GROUND-18-Math.random()*22, st.kind==='ship'?'water':'debris'));
-            addFloat(st.label+' DOWN!', st.x, GROUND-42, P.ui, 12); }
+        if(Math.abs(pr.x-st.x)<st.hw && pr.y>st.topY){ st.hp--; st.shk=0.3; SFX.fart(); for(var g1=0;g1<5;g1++) particles.push(makeP(pr.x,pr.y,'gas'));
+          if(st.hp<=0){ st.dead=true; addScore(300,st.x,GROUND-30); SFX.crash(); shake=9;
+            var nd = st.kind==='bridge'?36:22;
+            for(var d=0;d<nd;d++) particles.push(makeP(st.x+(Math.random()*st.hw*1.6-st.hw*0.8), GROUND-18-Math.random()*40, st.kind==='ship'?'water':'debris'));
+            addFloat(st.label+' DOWN!', st.x, GROUND-46, P.ui, 12); }
           done=true; break; } } }
       if(!done && boss.active && !boss.defeated && boss.inv<=0 && aabb(pr.x-5,pr.y-5,10,10, boss.x,boss.y,boss.w,boss.h)){
         boss.hp--; boss.inv=0.4; shake=5; SFX.fart(); for(var g2=0;g2<6;g2++) particles.push(makeP(boss.x+11,boss.y+12,'gas'));
@@ -1156,19 +1185,79 @@ function drawTony(){
   if(!boss.defeated){ var bx0=86, bw=VW-8-bx0; px(bx0,7,bw,9,P.black); px(bx0+1,8,bw-2,7,P.hpBg); px(bx0+1,8,(bw-2)*Math.max(0,boss.hp)/boss.maxHp,7,P.hp); g.fillStyle=P.white; g.font='7px monospace'; g.textAlign='center'; g.textBaseline='top'; gtext('TONY (school bully)', bx0+bw/2, 17); }
 }
 function drawStruct(st){
-  var x=st.x-world.scrollX; if(x<-70||x>VW+70) return;
+  var x=st.x-world.scrollX; if(x<-170||x>VW+170) return;
   var jx=(st.shk>0)?((Math.random()*2-1)*2|0):0;
-  if(st.kind==='tower'){
-    if(!st.dead){ px(x-14+jx,GROUND-18,4,18,'#8a9098'); px(x+10+jx,GROUND-18,4,18,'#8a9098'); px(x-14+jx,GROUND-10,28,3,'#6a7078');
-      px(x-16+jx,GROUND-40,32,22,'#c04040'); px(x-16+jx,GROUND-40,32,4,'#e06060');
-      g.fillStyle=P.white; g.font='6px monospace'; g.textAlign='center'; g.textBaseline='middle'; gtext('H2O', x+jx, GROUND-29); }
-    else { px(x-18,GROUND-6,36,6,'#7a8088'); px(x-10,GROUND-10,20,4,'#9aa0a8'); px(x-24,GROUND-3,48,3,'#5aa0d0'); }
-  } else if(st.kind==='ship'){
-    if(!st.dead){ px(x-24,GROUND-14+jx,48,10,'#b03030'); px(x-24,GROUND-6,48,4,'#7a2020'); px(x-8,GROUND-30+jx,3,18,'#8a6a3a'); px(x-13,GROUND-30+jx,10,8,'#eee'); px(x+6,GROUND-22+jx,14,8,'#6a7078'); }
-    else { px(x-20,GROUND-2,40,3,'#3a6a90'); px(x-6,GROUND-8,12,6,'#b03030'); px(x+10,GROUND-4,8,2,'#8a6a3a'); }
-  } else { // bridge
-    if(!st.dead){ px(x-30,GROUND-16+jx,60,5,'#9a6a3a'); px(x-30,GROUND-11,60,2,'#6a4a2a'); px(x-26,GROUND-11,3,11,'#6a4a2a'); px(x+23,GROUND-11,3,11,'#6a4a2a'); px(x-10,GROUND-22+jx,20,6,'#8a5a2a'); }
-    else { px(x-30,GROUND-4,10,4,'#6a4a2a'); px(x+20,GROUND-4,10,4,'#6a4a2a'); px(x-6,GROUND-2,12,2,'#5aa0d0'); }
+  if(st.kind==='tower') drawWaterTower(x+jx, st.dead);
+  else if(st.kind==='ship') drawShip(x+jx, st.dead);
+  else drawGoldenGate(x+jx, st.dead);
+}
+function drawWaterTower(x, dead){
+  var y=GROUND;
+  if(!dead){
+    var steel='#8a9098', steelD=shade(steel,0.7), steelL=shade(steel,1.15);
+    px(x-18,y-34,3,34,steelD); px(x+15,y-34,3,34,steelD);
+    px(x-11,y-34,3,34,steel);  px(x+8,y-34,3,34,steel);
+    px(x-18,y-24,36,2,steelD); px(x-18,y-12,36,2,steelD);
+    px(x-24,y-42,48,3,steel); px(x-24,y-45,48,1,steelL);
+    vgrad(x-22,y-70,44,28,shade('#c04040',1.15),'#c04040');
+    px(x-22,y-70,44,3,shade('#c04040',1.35));
+    px(x+16,y-70,6,28,shade('#c04040',0.72));
+    for(var i=0;i<10;i++){ px(x-2-i*2,y-72-i,4+i*4,1,shade('#9a3030',1-i*0.03)); }
+    px(x-1,y-84,2,4,'#8a9098');
+    g.fillStyle=P.white; g.font='7px monospace'; g.textAlign='center'; g.textBaseline='middle'; gtext('H2O', x, y-56);
+  } else {
+    px(x-26,y-8,52,8,'#7a8088'); px(x-16,y-14,30,6,'#9aa0a8');
+    px(x-40,y-3,80,3,'#5aa0d0'); px(x-40,y-2,80,2,mix('#5aa0d0','#bfe8ff',0.4));
+  }
+}
+function drawShip(x, dead){
+  var y=GROUND;
+  if(!dead){
+    var hull='#b03030', hullD=shade(hull,0.7);
+    px(x-46,y-4,92,4,'#3a6a90');
+    px(x-40,y-20,80,16,hull); px(x-40,y-8,80,4,hullD);
+    px(x-44,y-16,4,10,hull); px(x+40,y-16,4,10,hull);
+    px(x-40,y-20,80,2,shade(hull,1.2));
+    for(var i=-3;i<=3;i++){ px(x+i*10-1,y-14,3,3,'#ffe27a'); }
+    px(x-8,y-30,20,10,'#e0e0e0'); px(x-8,y-30,20,2,'#c0c0c0'); px(x-4,y-27,4,4,'#7fbfe0'); px(x+2,y-27,4,4,'#7fbfe0');
+    px(x-20,y-52,2,32,'#6a4a2a'); px(x+18,y-46,2,26,'#6a4a2a');
+    px(x-30,y-52,20,14,'#f4f0e0'); px(x-30,y-52,20,2,'#d8d2bc');
+    px(x+8,y-46,20,12,'#f4f0e0'); px(x+8,y-46,20,2,'#d8d2bc');
+    px(x+2,y-38,5,8,'#333'); px(x+2,y-38,5,2,'#c02020');
+  } else {
+    px(x-30,y-2,60,3,'#3a6a90'); px(x-10,y-10,16,8,'#7a2020'); px(x-24,y-6,10,4,shade('#b03030',0.8)); px(x+16,y-4,10,3,'#6a4a2a');
+  }
+}
+function drawGoldenGate(x, dead){
+  var y=GROUND, IO='#c1502e', IOd=shade(IO,0.72), IOl=shade(IO,1.18);
+  if(!dead){
+    px(x-122,y-6,244,6,'#3a6a90'); px(x-122,y-6,244,1,'#5a8ab0');
+    var towTop=y-100, deckY=y-34;
+    [-70,70].forEach(function(tx){
+      px(x+tx-9,towTop,5,100,IOl); px(x+tx+4,towTop,5,100,IOd); px(x+tx-4,towTop,8,100,IO);
+      px(x+tx-9,towTop+10,18,4,IO); px(x+tx-9,towTop+28,18,4,IO); px(x+tx-9,deckY-8,18,4,IO);
+      px(x+tx-6,towTop-4,12,4,IO); px(x+tx-3,towTop-8,6,4,IO);
+    });
+    g.strokeStyle=IO; g.lineWidth=2;
+    function cable(x0,y0,x1,y1,sag){ g.beginPath(); g.moveTo(x0,y0); for(var i=1;i<=10;i++){ var tt=i/10, xx=x0+(x1-x0)*tt, base=y0+(y1-y0)*tt, dip=Math.sin(tt*Math.PI)*sag; g.lineTo(xx, base+dip); } g.stroke(); }
+    cable(x-122, deckY-2, x-70, towTop, 6);
+    cable(x-70, towTop, x+70, towTop, 30);
+    cable(x+70, towTop, x+122, deckY-2, 6);
+    g.lineWidth=1;
+    for(var sxp=-112; sxp<=112; sxp+=9){ var t2, cy;
+      if(sxp<-70){ t2=(sxp+122)/52; cy=(deckY-2)+(towTop-(deckY-2))*t2 + Math.sin(t2*Math.PI)*6; }
+      else if(sxp>70){ t2=(sxp-70)/52; cy=towTop+((deckY-2)-towTop)*t2 + Math.sin(t2*Math.PI)*6; }
+      else { t2=(sxp+70)/140; cy=towTop + Math.sin(t2*Math.PI)*30; }
+      g.beginPath(); g.moveTo(x+sxp, cy); g.lineTo(x+sxp, deckY); g.stroke();
+    }
+    px(x-120,deckY,240,5,IOd); px(x-120,deckY,240,1,IOl); px(x-120,deckY+4,240,1,shade(IO,0.55));
+    for(var rx=-118; rx<118; rx+=8) px(x+rx,deckY-2,4,1,IOl);
+    g.fillStyle=P.white; g.font='6px monospace'; g.textAlign='center'; g.textBaseline='bottom'; gtext('GOLDEN GATE', x, towTop-6);
+  } else {
+    px(x-122,y-4,244,4,'#3a6a90');
+    px(x-90,y-2,26,2,shade(IO,0.8)); px(x+40,y-2,30,2,shade(IO,0.8));
+    px(x-30,y-8,16,6,shade(IO,0.7)); px(x-8,y-3,20,3,'#5a8ab0');
+    px(x-72,y-30,5,30,shade(IO,0.75));
   }
 }
 function drawIpad(){
@@ -1197,13 +1286,18 @@ function drawGeyserFX(){
   g.globalAlpha=1;
 }
 function drawJordanBg(){
-  var grd=g.createLinearGradient(0,0,0,GROUND); grd.addColorStop(0,P.sky); grd.addColorStop(1,P.sky2); g.fillStyle=grd; g.fillRect(0,0,VW,GROUND);
-  var cx=(-world.scrollX*0.2)%(VW+120); for(var i=-1;i<3;i++){ cloud(cx+i*160+30,26); cloud(cx+i*160+110,54); }
-  var hx=-world.scrollX*0.5;
-  for(var b=-1;b<14;b++){ var bx=hx+b*64; var bh=26+((b*37)%42); g.fillStyle='#566a92'; g.fillRect(bx,GROUND-bh,44,bh);
-    for(var wy=6; wy<bh-4; wy+=9){ for(var wx=5; wx<38; wx+=9){ g.fillStyle='#9fb2d8'; g.fillRect(bx+wx,GROUND-bh+wy,3,4); } } }
-  g.fillStyle='#7a6a4a'; g.fillRect(0,GROUND,VW,VH-GROUND); g.fillStyle='#8a7a5a'; g.fillRect(0,GROUND,VW,3);
-  for(var x=(-world.scrollX%18+18)%18; x<VW; x+=18){ g.fillStyle='#5a4a2a'; g.fillRect(x,GROUND+5,9,1); }
+  ditherBand(0,0,VW,GROUND, mix(P.sky,'#cfeaff',0.35), P.sky2);
+  // far city (dark, slow)
+  var fx=(-world.scrollX*0.25);
+  for(var b=-1;b<22;b++){ var bx=fx+b*54; var bh=20+((b*29)%30); g.fillStyle='#3d4f74'; g.fillRect(bx,GROUND-bh,38,bh); }
+  var cx=(-world.scrollX*0.4)%(VW+140); for(var i=-1;i<3;i++){ cloud(cx+i*180+30,26); cloud(cx+i*180+120,54); }
+  // near city (brighter, faster, lit windows)
+  var hx=-world.scrollX*0.6;
+  for(var b2=-1;b2<20;b2++){ var bx2=hx+b2*70; var bh2=30+((b2*37)%46); vgrad(bx2,GROUND-bh2,48,bh2,'#66799f','#556a92');
+    for(var wy=6; wy<bh2-4; wy+=9){ for(var wx=5; wx<42; wx+=9){ g.fillStyle=((wx+wy+b2)%3===0)?'#ffe27a':'#9fb2d8'; g.fillRect(bx2+wx,GROUND-bh2+wy,3,4); } } }
+  // shaded ground
+  vgrad(0,GROUND,VW,VH-GROUND,'#8a7a5a','#5a4a2a'); px(0,GROUND,VW,2,'#9a8a6a'); px(0,GROUND+2,VW,1,shade('#8a7a5a',0.7));
+  for(var x=(-world.scrollX%18+18)%18; x<VW; x+=18){ g.fillStyle='#4a3a1e'; g.fillRect(x,GROUND+6,9,1); }
 }
 function drawSnackPr(pr){
   var x=pr.x-world.scrollX, y=pr.y; g.save(); g.translate(x,y); g.rotate(pr.rot);
@@ -1288,34 +1382,33 @@ function emmaHUD(){
 
 /* ---------------- backgrounds ---------------- */
 function drawSky(){
-  var grd=g.createLinearGradient(0,0,0,VH); grd.addColorStop(0,P.sky2); grd.addColorStop(1,P.sky);
-  g.fillStyle=grd; g.fillRect(0,0,VW,VH);
+  ditherBand(0,0,VW,GROUND, mix(P.sky2,'#dff0ff',0.4), P.sky);
+  // far hills (extra parallax layer)
+  var fx=(-world.scrollX*0.25);
+  g.fillStyle=shade(P.hill2,0.8);
+  for(var f=-1;f<8;f++){ var fbx=fx+f*150; g.beginPath(); g.moveTo(fbx,GROUND); g.arc(fbx+55,GROUND,58,Math.PI,0); g.fill(); }
   // clouds (parallax)
   var cx=(-world.scrollX*0.2)%(VW+120);
   for(var i=-1;i<3;i++){ cloud(cx+i*160+30, 30); cloud(cx+i*160+110, 60); }
-  // distant hills
+  // near hills
   var hx=(-world.scrollX*0.4);
-  g.fillStyle=P.hill2;
-  for(var h=-1;h<8;h++){ var bx=hx+h*120; g.beginPath(); g.moveTo(bx,GROUND); g.arc(bx+40,GROUND,44,Math.PI,0); g.fill(); }
+  for(var h=-1;h<8;h++){ var bx=hx+h*120; g.fillStyle=P.hill2; g.beginPath(); g.moveTo(bx,GROUND); g.arc(bx+40,GROUND,44,Math.PI,0); g.fill(); g.fillStyle=shade(P.hill2,1.25); g.beginPath(); g.moveTo(bx+8,GROUND); g.arc(bx+40,GROUND,44,Math.PI*1.15,Math.PI*1.4); g.lineTo(bx+8,GROUND); g.fill(); }
 }
-function cloud(x,y){ g.fillStyle=P.cloud; g.fillRect(x,y,26,7); g.fillRect(x+6,y-4,16,7); g.fillRect(x+14,y,20,6); }
+function cloud(x,y){ g.fillStyle='#eef6ff'; g.fillRect(x,y,26,7); g.fillRect(x+6,y-4,16,7); g.fillRect(x+14,y,20,6); g.fillStyle=P.cloud; g.fillRect(x+2,y+1,22,3); g.fillRect(x+8,y-3,12,3); }
 function drawGround(){
-  // big red barn wall behind (mid parallax), fence, hay bales along level
   var bx=100-world.scrollX*0.85;
   drawBarn(bx, GROUND-70);
   drawBarn(bx+520, GROUND-70);
   drawBarn(bx+1040, GROUND-70);
   drawBarn(bx+1560, GROUND-70);
-  // fence line
   for(var fx=-40; fx<world.len+200; fx+=40){ var sx=fx-world.scrollX; if(sx>-40&&sx<VW+10) fencePost(sx, GROUND-20); }
-  // hay bales scattered
   var hays=[220,640,900,1300,1700,2050,2350];
   for(var i=0;i<hays.length;i++){ var hx=hays[i]-world.scrollX; if(hx>-30&&hx<VW+10) hayBale(hx,GROUND-14); }
-  // ground
-  px(0,GROUND,VW,4,P.grass);
-  px(0,GROUND+4,VW,2,P.grassD);
-  px(0,GROUND+6,VW,VH-GROUND-6,P.dirt);
-  for(var x=(-world.scrollX%16); x<VW; x+=16){ px(x,GROUND+8,8,2,P.dirtD); }
+  px(0,GROUND,VW,3,shade(P.grass,1.15));
+  px(0,GROUND+3,VW,3,P.grass);
+  px(0,GROUND+6,VW,2,P.grassD);
+  vgrad(0,GROUND+8,VW,VH-GROUND-8,P.dirt,shade(P.dirt,0.72));
+  for(var x=(-world.scrollX%16); x<VW; x+=16){ px(x,GROUND+9,8,2,P.dirtD); px(x+8,GROUND+14,6,2,shade(P.dirt,0.85)); }
 }
 function drawBarn(x,y){
   if(x>VW||x+200<0) return;
@@ -1585,29 +1678,32 @@ function drawPlay(){
   if(char.id==='emma'){
     drawEmmaBg();
     for(var ii=0;ii<items.length;ii++) drawItem(items[ii]);
-    for(var i=0;i<enemies.length;i++){ if(!enemies[i].dead) drawCreepy(enemies[i]); }
-    if(boss.active) drawJordan();
+    for(var i=0;i<enemies.length;i++){ if(!enemies[i].dead){ groundShadow(enemies[i].x, enemies[i].w); drawCreepy(enemies[i]); } }
+    if(boss.active){ groundShadow(boss.x, boss.w); drawJordan(); }
     projectiles.forEach(function(pr){ if(pr.type==='fart') drawFart(pr); else drawSnackPr(pr); });
     drawEthanTrain();
+    groundShadow(player.x, player.w);
     var pInvE = player.inv>0 && Math.floor(blinkT*20)%2===0;
     if(!pInvE) drawEmma(player.x-world.scrollX, player.y, player.face, player.state, player.anim);
     if(anxFX>0){ g.globalAlpha=anxFX*0.25; g.fillStyle='#7fd7ff'; g.fillRect(0,0,VW,GROUND); g.globalAlpha=1; }
   } else if(char.id==='jordan'){
     drawJordanBg();
-    for(var si=0;si<structs.length;si++) drawStruct(structs[si]);
-    drawIpad();
-    for(var i=0;i<enemies.length;i++){ if(!enemies[i].dead) drawOgre(enemies[i]); }
-    if(boss.active && !boss.defeated) drawTony();
+    for(var si=0;si<structs.length;si++){ if(!structs[si].dead) groundShadow(structs[si].x-structs[si].hw/2, structs[si].hw); drawStruct(structs[si]); }
+    groundShadow(IPAD_X-6, 16); drawIpad();
+    for(var i=0;i<enemies.length;i++){ if(!enemies[i].dead){ groundShadow(enemies[i].x, enemies[i].w); drawOgre(enemies[i]); } }
+    if(boss.active && !boss.defeated){ groundShadow(boss.x, boss.w); drawTony(); }
     projectiles.forEach(function(pr){ if(pr.type==='whoopie') drawWhoopie(pr); else drawTonyPr(pr); });
+    groundShadow(player.x, player.w);
     var pInvJ = player.inv>0 && Math.floor(blinkT*20)%2===0;
     if(!pInvJ) drawKidJordan(player.x-world.scrollX, player.y, player.face, player.state, player.anim, false);
     drawGeyserFX();
   } else {
     drawSky(); drawGround();
-    for(var i=0;i<enemies.length;i++){ if(!enemies[i].dead) drawEnemy(enemies[i]); }
-    if(boss.active && !boss.defeated) drawTodd();
+    for(var i=0;i<enemies.length;i++){ if(!enemies[i].dead){ groundShadow(enemies[i].x, enemies[i].w); drawEnemy(enemies[i]); } }
+    if(boss.active && !boss.defeated){ groundShadow(boss.x, boss.w); drawTodd(); }
     projectiles.forEach(drawProjectile);
     if(dog.active && dog.mode!=='kiss') drawDog(dog.x-world.scrollX, dog.y, dog.face, false);
+    groundShadow(player.x, player.w);
     var pInv = player.inv>0 && Math.floor(blinkT*20)%2===0;
     if(!pInv) drawRonda(player.x-world.scrollX, player.y, player.face, player.state, player.anim);
     if(dog.active && dog.mode==='kiss') drawDog(dog.x-world.scrollX, dog.y, dog.face, true);
@@ -1695,6 +1791,7 @@ function loop(now){
   else if(STATE==='PLAY') drawPlay();
   else if(STATE==='WIN'){ winCd=(winCd<=0&&winTimer<0.6)?0.6:winCd; drawWin(); }
   else if(STATE==='LOSE'){ if(winCd<=0&&STATE==='LOSE'&&!loseArmed){loseArmed=true;winCd=0.6;} drawLose(); }
+  vignette();
 
   // blit to screen, letterboxed
   ctx.fillStyle='#000'; ctx.fillRect(0,0,cv.width,cv.height);
