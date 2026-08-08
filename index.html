@@ -61,7 +61,7 @@
    Single-file, canvas 2D, procedural pixel art + chiptune.
    Deploy: this is index.html at repo root (GitHub Pages).
    ============================================================ */
-var BUILD = "1786195932"; // replaced at deploy time (unix ts)
+var BUILD = "1786196912"; // replaced at deploy time (unix ts)
 
 /* -------------------- Self-updater (matches your deploy flow) -------------------- */
 (function(){
@@ -895,64 +895,65 @@ function drawRonda(sx,sy,face,state,anim){
   function X(x){ return sx+x; }
   var bob = (state==='walk')? (Math.sin(anim)*1.5|0) : 0;
   var y=sy+bob;
-  // legs
-  var legc=P.parkaD;
-  if(state==='walk'){ var s=Math.sin(anim); px(X(5),y+28,4,6,legc); px(X(11),y+28,4,6,legc); }
-  else { px(X(5),y+28,4,6,legc); px(X(11),y+28,4,6,legc); }
+  var par='#5a6e2e',parD='#3f4f1f',parH='#7a934a',OL='#1c2410';
+  var skin=P.skin,skinD=P.skinD,hair='#c39a4e',hairH='#e2c27a',hairD='#8a5f2c',fur='#e3d8c0',furD='#b3a888';
+  // outline silhouette
+  px(X(5),y+1,12,5,OL); px(X(3),y+5,15,23,OL); px(X(2),y+15,3,10,OL); px(X(16),y+15,3,10,OL); px(X(5),y+25,5,11,OL); px(X(12),y+25,5,11,OL);
   // boots
-  px(X(4),y+33,6,3,P.woodD); px(X(10),y+33,6,3,P.woodD);
-  // parka body (olive puffy)
-  px(X(3),y+14,14,16,P.parka);
-  px(X(3),y+14,3,16,P.parkaD); px(X(14),y+14,3,16,P.parkaHi);
-  px(X(6),y+17,8,2,P.parkaD); px(X(6),y+22,8,1,P.parkaD); // puff seams
-  // arms
-  if(state==='hug'){ px(X(2),y+18,4,6,P.parka); px(X(14),y+18,4,6,P.parka); }
-  else if(state==='pet'){ px(X(13),y+20,6,4,P.parka); px(X(2),y+16,4,8,P.parka); }
-  else { px(X(1),y+16,4,10,P.parka); px(X(15),y+16,4,10,P.parka); }
+  px(X(6),y+33,4,3,'#2a2016'); px(X(12),y+33,4,3,'#2a2016'); px(X(6),y+32,4,1,shade('#2a2016',1.5));
+  // legs
+  px(X(6),y+26,4,8,parD); px(X(12),y+26,4,8,parD); px(X(6),y+26,2,8,par);
+  // parka body
+  px(X(4),y+13,14,14,par); px(X(4),y+13,3,14,parH); px(X(15),y+13,3,14,parD);
+  px(X(6),y+16,10,1,parD); px(X(6),y+20,10,1,parD); px(X(6),y+23,10,1,parD); // puff seams
+  // arms by state
+  if(state==='hug'){ px(X(2),y+14,4,7,par); px(X(15),y+14,4,7,par); px(X(2),y+14,4,2,parH); px(X(2),y+20,3,2,skin); px(X(16),y+20,3,2,skin); }
+  else if(state==='pet'){ px(X(14),y+18,4,7,par); px(X(2),y+15,3,8,par); px(X(15),y+24,3,2,skin); px(X(2),y+22,3,2,skin); }
+  else { px(X(2),y+14,3,10,par); px(X(15),y+14,3,10,par); px(X(2),y+14,3,2,parH); px(X(15),y+21,3,2,parD); px(X(2),y+23,3,2,skin); px(X(15),y+23,3,2,skin); }
   // fur hood collar
-  px(X(3),y+11,14,4,P.fur); px(X(2),y+12,3,3,P.fur); px(X(15),y+12,3,3,P.fur);
+  px(X(4),y+10,14,4,fur); px(X(3),y+11,3,3,fur); px(X(15),y+11,3,3,fur); px(X(5),y+13,12,1,furD);
   // head
-  px(X(6),y+3,8,9,P.skin);
-  px(X(6),y+10,8,2,P.skinD);
-  // hair (brownish-blonde)
-  px(X(5),y,10,4,P.hair); px(X(5),y+3,2,7,P.hair); px(X(13),y+3,2,7,P.hair);
-  px(X(6),y,8,2,P.hairHi);
+  px(X(6),y+3,10,9,skin); px(X(6),y+10,10,2,skinD); px(X(6),y+3,10,2,shade(skin,1.08));
+  // hair
+  px(X(5),y+1,12,4,hair); px(X(5),y+4,2,7,hair); px(X(15),y+4,2,7,hairD); px(X(6),y+1,10,1,hairH);
   // face
-  px(X(8),y+6,1,1,P.black); px(X(11),y+6,1,1,P.black); // eyes
-  px(X(9),y+9,3,1,P.tongue); // smile
-  // blush when hugging
-  if(state==='hug'){ px(X(7),y+8,1,1,P.ear); px(X(12),y+8,1,1,P.ear); }
+  px(X(8),y+6,1,2,'#20160e'); px(X(13),y+6,1,2,'#20160e'); px(X(8),y+7,1,1,'#fff'); px(X(13),y+7,1,1,'#fff');
+  px(X(9),y+9,4,1,'#b3564a');
+  if(state==='hug'){ px(X(7),y+8,1,1,P.ear); px(X(13),y+8,1,1,P.ear); }
   endFlip(flipped);
 }
 function drawDog(sx,sy,face,inArms){
   var flipped=beginFlip(sx,24,face); function X(x){ return sx+x; }
   var y=sy;
+  var blk='#262a2f', blkH='#3f454e', blkD='#14161a', OL='#0b0c0f';
   if(inArms){
     // compact happy pup
-    px(X(6),y,12,9,P.dog); px(X(6),y,12,3,P.dogHi);
-    px(X(6),y-4,4,5,P.dog); px(X(14),y-4,4,5,P.dog); // ears
-    px(X(9),y-3,1,2,P.ear); px(X(15),y-3,1,2,P.ear);
-    px(X(15),y+3,3,3,P.dog); // snout
-    px(X(10),y+3,1,1,P.dogEye); px(X(13),y+3,1,1,P.dogEye);
+    px(X(5),y-1,14,11,OL);
+    px(X(6),y,12,9,blk); px(X(6),y,12,3,blkH); px(X(6),y+7,12,2,blkD);
+    px(X(6),y-4,4,5,blk); px(X(14),y-4,4,5,blk); // ears
+    px(X(7),y-3,1,3,blkD); px(X(15),y-3,1,3,blkD);
+    px(X(15),y+3,3,3,blk); // snout
+    px(X(10),y+3,1,1,'#e2a24a'); px(X(13),y+3,1,1,'#e2a24a');
     px(X(16),y+6,2,1,P.tongue);
     endFlip(flipped);
     return;
   }
-  // body
-  px(X(2),y+2,16,8,P.dog); px(X(2),y+2,16,3,P.dogHi);
+  // outline
+  px(X(1),y+1,24,10,OL); px(X(15),y-8,10,10,OL); px(X(3),y+8,4,7,OL); px(X(12),y+8,5,7,OL);
   // legs (running)
-  px(X(4),y+9,3,5,P.dog); px(X(13),y+9,3,5,P.dog);
+  px(X(4),y+9,3,6,blk); px(X(13),y+9,3,6,blk); px(X(4),y+13,3,2,blkD); px(X(13),y+13,3,2,blkD);
+  // body
+  px(X(2),y+2,16,8,blk); px(X(2),y+2,16,2,blkH); px(X(2),y+8,16,2,blkD);
   // tail
-  px(X(0),y+1,3,3,P.dog);
-  // neck+head
-  px(X(16),y-4,7,9,P.dog);
-  // ears (big pointy — GSD)
-  px(X(16),y-9,3,6,P.dog); px(X(20),y-9,3,6,P.dog);
-  px(X(17),y-7,1,3,P.ear); px(X(21),y-7,1,3,P.ear);
+  px(X(0),y,3,4,blk);
+  // neck + head
+  px(X(16),y-4,8,9,blk); px(X(16),y-4,8,2,blkH);
+  // ears (pointy GSD)
+  px(X(16),y-9,3,6,blk); px(X(20),y-9,3,6,blk); px(X(17),y-7,1,3,blkD); px(X(21),y-7,1,3,blkD);
   // snout
-  px(X(22),y-1,4,4,P.dog); px(X(25),y+0,1,2,P.black);
-  // eye (brown)
-  px(X(19),y-2,2,2,P.dogEye); px(X(20),y-2,1,1,P.white);
+  px(X(22),y-1,4,4,blk); px(X(22),y-1,4,1,blkH); px(X(25),y,1,2,'#050506');
+  // eye (amber, pops)
+  px(X(19),y-2,2,2,'#e2a24a'); px(X(19),y-2,1,1,'#fff');
   // open mouth + tongue
   px(X(22),y+3,4,2,P.tongue);
   endFlip(flipped);
@@ -960,25 +961,25 @@ function drawDog(sx,sy,face,inArms){
 function drawEnemy(e){
   var sx=e.x-world.scrollX, sy=e.y; var flipped=beginFlip(sx,18,e.face); function X(x){ return sx+x; }
   var bob=Math.sin(e.walkT*8)*1.5|0; var y=sy+bob;
+  var sh1=shade(e.shirt,1.18), sh2=shade(e.shirt,0.72), OL='#1a1a22';
+  // outline
+  px(X(4),y,10,12,OL); px(X(2),y+12,14,13,OL); px(X(0),y+7,4,10,OL); px(X(14),y+7,4,10,OL); px(X(4),y+24,4,7,OL); px(X(10),y+24,4,7,OL);
   // legs
-  px(X(4),y+24,4,6,P.ePants); px(X(10),y+24,4,6,P.ePants);
-  px(X(4),y+29,4,2,P.black); px(X(10),y+29,4,2,P.black);
+  px(X(4),y+24,4,6,P.ePants); px(X(4),y+24,2,6,shade(P.ePants,1.2)); px(X(10),y+24,4,6,shade(P.ePants,0.8));
+  px(X(4),y+29,4,2,'#111'); px(X(10),y+29,4,2,'#111');
   // torso
-  px(X(3),y+13,12,12,e.shirt);
-  // arms up (angry, waving)
-  px(X(0),y+9,3,7,e.shirt); px(X(15),y+9,3,7,e.shirt);
-  px(X(0),y+7,3,3,P.skin); px(X(15),y+7,3,3,P.skin);
+  px(X(3),y+13,12,12,e.shirt); px(X(3),y+13,3,12,sh1); px(X(12),y+13,3,12,sh2);
+  // arms up (angry)
+  px(X(0),y+8,3,8,e.shirt); px(X(15),y+8,3,8,e.shirt); px(X(0),y+6,3,3,P.skin); px(X(15),y+6,3,3,P.skin);
   // head
-  px(X(5),y+3,8,9,P.skin);
+  px(X(5),y+3,8,9,P.skin); px(X(5),y+3,8,2,shade(P.skin,1.08)); px(X(5),y+10,8,2,P.skinD);
   // angry hair
   px(X(5),y,8,4,P.woodD); px(X(4),y+2,2,5,P.woodD); px(X(12),y+2,2,5,P.woodD);
   // angry face
-  px(X(6),y+6,2,1,P.black); px(X(10),y+6,2,1,P.black);
-  px(X(6),y+5,2,1,P.black); px(X(10),y+5,2,1,P.black); // brows
-  px(X(7),y+9,4,1,P.black); // frown/yell
-  px(X(8),y+9,2,2,P.red); // open yelling mouth
+  px(X(6),y+5,2,1,'#1a1a22'); px(X(10),y+5,2,1,'#1a1a22'); // brows
+  px(X(6),y+6,2,1,'#111'); px(X(10),y+6,2,1,'#111');
+  px(X(8),y+9,3,2,P.red); // open yelling mouth
   endFlip(flipped);
-  // speech bubble
   if(e.active){ speechBubble(sx-6, y-14, e.line); }
 }
 function speechBubble(x,y,txt){
@@ -993,27 +994,30 @@ function drawTodd(){
   var bob=Math.sin(boss.t*6+performance.now()*0.003)*1|0;
   var y=sy+bob;
   var flash = boss.inv>0 && (Math.floor(blinkT*20)%2===0);
+  var OL='#0f0f16';
+  // outline
+  px(X(7),y+1,12,11,OL); px(X(3),y+11,20,16,OL); px(X(0),y+12,4,12,OL); px(X(20),y+12,4,12,OL); px(X(5),y+29,7,12,OL); px(X(14),y+29,7,12,OL);
   // legs (bare — shorts!)
-  px(X(6),y+30,5,10,P.skin); px(X(15),y+30,5,10,P.skin);
-  px(X(5),y+38,7,3,P.black); px(X(14),y+38,7,3,P.black); // dress shoes (with shorts, obviously)
+  px(X(6),y+30,5,10,P.skin); px(X(15),y+30,5,10,P.skin); px(X(6),y+30,2,10,shade(P.skin,1.1));
+  px(X(5),y+38,7,3,'#111'); px(X(14),y+38,7,3,'#111');
   // shorts (khaki)
-  px(X(5),y+26,16,7,P.shorts); px(X(5),y+26,16,2,P.shortsD);
+  px(X(5),y+26,16,7,P.shorts); px(X(5),y+26,16,2,shade(P.shorts,1.25)); px(X(5),y+31,16,2,P.shortsD);
   // suit jacket
-  var jc = flash? P.white : P.toddSuit;
-  px(X(4),y+12,18,15,jc); px(X(4),y+12,3,15, flash?P.white:P.toddSuitD);
+  var jc = flash? P.white : P.toddSuit, jcH=flash?P.white:shade(P.toddSuit,1.25), jcD=flash?'#ddd':P.toddSuitD;
+  px(X(4),y+12,18,15,jc); px(X(4),y+12,3,15,jcH); px(X(19),y+12,3,15,jcD);
   // white shirt + red tie
-  px(X(11),y+12,4,13,P.shirt); px(X(12),y+13,2,10,P.tie);
+  px(X(11),y+12,4,13,P.shirt); px(X(12),y+13,2,10,P.tie); px(X(12),y+13,2,1,shade(P.tie,1.3));
   // lapels
-  px(X(8),y+12,3,6,flash?P.white:P.toddSuitD); px(X(15),y+12,3,6,flash?P.white:P.toddSuitD);
+  px(X(8),y+12,3,6,jcD); px(X(15),y+12,3,6,jcD);
   // arms
-  px(X(1),y+13,4,10,jc); px(X(21),y+13,4,10,jc);
+  px(X(1),y+13,4,10,jc); px(X(21),y+13,4,10,jc); px(X(1),y+13,4,2,jcH);
   px(X(1),y+22,4,3,P.skin); px(X(21),y+22,4,3,P.skin);
   // head
-  px(X(8),y+2,10,10,P.skin);
-  px(X(8),y-1,10,4,P.woodD); // hair
-  px(X(10),y+6,2,1,P.black); px(X(14),y+6,2,1,P.black); // eyes
+  px(X(8),y+2,10,10,P.skin); px(X(8),y+2,10,2,shade(P.skin,1.08)); px(X(8),y+10,10,2,P.skinD);
+  px(X(8),y-1,10,4,P.woodD); px(X(8),y-1,10,1,shade(P.woodD,1.4)); // hair
+  px(X(10),y+6,2,1,'#111'); px(X(14),y+6,2,1,'#111'); // eyes
   // mouth: open + cackling while taunting, else stern
-  if(boss.taunt>0 && !boss.defeated){ px(X(11),y+8,4,3,P.black); px(X(12),y+9,2,1,P.red); }
+  if(boss.taunt>0 && !boss.defeated){ px(X(11),y+8,4,3,'#111'); px(X(12),y+9,2,1,P.red); }
   else px(X(11),y+9,4,1,P.skinD);
   endFlip(flipped);
   // taunt bubble
@@ -1055,47 +1059,51 @@ function drawParticle(p){
 function drawEmma(sx,sy,face,state,anim){
   var flipped=beginFlip(sx,20,face); function X(x){ return sx+x; }
   var bob=(state==='walk')?(Math.sin(anim)*1.5|0):0; var y=sy+bob;
-  // legs (jeans)
-  px(X(5),y+26,4,8,'#3a4a80'); px(X(11),y+26,4,8,'#3a4a80');
-  px(X(4),y+33,6,2,'#2a3560'); px(X(10),y+33,6,2,'#2a3560');
-  // red polka top + black hem
-  px(X(4),y+13,12,11,'#c0202c');
-  px(X(4),y+22,12,3,'#181818');
-  px(X(6),y+15,1,1,P.white); px(X(10),y+16,1,1,P.white); px(X(13),y+18,1,1,P.white); px(X(7),y+20,1,1,P.white); px(X(12),y+14,1,1,P.white);
-  // arms
-  if(state==='throw'){ px(X(14),y+12,7,4,'#c0202c'); px(X(20),y+11,3,3,P.skin); px(X(0),y+15,4,7,'#c0202c'); }
-  else if(state==='hug'){ px(X(2),y+15,4,7,'#c0202c'); px(X(14),y+15,4,7,'#c0202c'); }
-  else if(state==='cry'){ px(X(4),y+9,4,8,'#c0202c'); px(X(12),y+9,4,8,'#c0202c'); }
-  else { px(X(1),y+15,4,9,'#c0202c'); px(X(15),y+15,4,9,'#c0202c'); px(X(1),y+22,3,2,P.skin); px(X(16),y+22,3,2,P.skin); }
+  var top='#c8323c',topD='#96222a',topH='#e0555f',hem='#181820';
+  var jean='#3a4f8a',jeanD='#28386a',jeanH='#5a72b0';
+  var skin=P.skin,skinD=P.skinD,hair='#2e1d12',hairH='#4a3020',hairD='#1c110a',OL='#141018';
+  // outline
+  px(X(5),y+1,12,4,OL); px(X(3),y+11,15,15,OL); px(X(2),y+13,3,10,OL); px(X(16),y+13,3,10,OL); px(X(5),y+25,5,11,OL); px(X(12),y+25,5,11,OL);
+  // shoes + legs
+  px(X(6),y+34,4,2,'#20242e'); px(X(12),y+34,4,2,'#20242e');
+  px(X(6),y+25,4,9,jean); px(X(12),y+25,4,9,jean); px(X(6),y+25,2,9,jeanH); px(X(14),y+25,2,9,jeanD);
+  // top
+  px(X(4),y+12,14,11,top); px(X(4),y+12,3,11,topH); px(X(15),y+12,3,11,topD); px(X(4),y+21,14,3,hem);
+  var dots=[[6,15],[10,16],[13,18],[7,19],[12,14]]; for(var di=0;di<dots.length;di++) px(X(dots[di][0]),y+dots[di][1],1,1,P.white);
+  // arms by state
+  if(state==='throw'){ px(X(15),y+11,6,4,top); px(X(20),y+10,3,3,skin); px(X(2),y+14,3,8,top); px(X(2),y+21,3,2,skin); }
+  else if(state==='hug'){ px(X(3),y+14,4,7,top); px(X(14),y+14,4,7,top); px(X(3),y+20,3,2,skin); px(X(15),y+20,3,2,skin); }
+  else if(state==='cry'){ px(X(5),y+8,4,8,top); px(X(12),y+8,4,8,top); px(X(5),y+8,4,1,topH); }
+  else { px(X(2),y+14,3,9,top); px(X(16),y+14,3,9,top); px(X(2),y+14,3,2,topH); px(X(2),y+21,3,2,skin); px(X(16),y+21,3,2,skin); }
   // head
-  px(X(6),y+3,8,9,P.skin);
-  // dark hair + top bun
-  px(X(5),y+2,10,3,'#3a2416'); px(X(5),y+4,2,5,'#3a2416'); px(X(13),y+4,2,5,'#3a2416');
-  px(X(8),y-2,5,4,'#3a2416');
-  // sunglasses perched up
-  px(X(5),y+2,10,2,'#111'); px(X(6),y+2,3,1,'#3a5a7a'); px(X(11),y+2,3,1,'#3a5a7a');
+  px(X(6),y+3,10,9,skin); px(X(6),y+3,10,2,shade(skin,1.08)); px(X(6),y+10,10,2,skinD);
+  // hair + bun
+  px(X(5),y+2,12,3,hair); px(X(5),y+4,2,7,hair); px(X(15),y+4,2,7,hairD); px(X(8),y-1,6,3,hair); px(X(8),y-1,6,1,hairH);
+  // sunglasses perched
+  px(X(5),y+2,12,2,'#111'); px(X(6),y+2,3,1,'#4a6a8a'); px(X(12),y+2,3,1,'#4a6a8a');
   // big dramatic eyes
-  px(X(7),y+5,2,3,P.white); px(X(11),y+5,2,3,P.white);
-  px(X(8),y+6,1,1,'#111'); px(X(12),y+6,1,1,'#111');
-  if(state==='cry'){ px(X(8),y+8,1,2,'#7fd7ff'); px(X(12),y+8,1,2,'#7fd7ff'); px(X(9),y+9,3,2,'#a03040'); }
-  else px(X(9),y+9,3,1,'#a03040');
+  px(X(7),y+5,2,3,P.white); px(X(12),y+5,2,3,P.white); px(X(8),y+6,1,1,'#141018'); px(X(13),y+6,1,1,'#141018');
+  if(state==='cry'){ px(X(8),y+8,1,2,'#7fd7ff'); px(X(13),y+8,1,2,'#7fd7ff'); px(X(9),y+9,4,2,'#a83848'); }
+  else px(X(9),y+9,4,1,'#a83848');
   endFlip(flipped);
 }
 function drawEthan(sx,sy,face){
   var flipped=beginFlip(sx,18,face); function X(x){ return sx+x; }
-  var y=sy;
-  px(X(5),y+24,3,8,'#33447a'); px(X(10),y+24,3,8,'#33447a');
+  var y=sy; var jean='#33447a', shirt='#1a1030', OL='#0b0812';
+  // outline
+  px(X(4),y+1,10,12,OL); px(X(3),y+12,12,14,OL); px(X(0),y+13,4,9,OL); px(X(14),y+13,4,9,OL); px(X(4),y+23,4,9,OL); px(X(9),y+23,4,9,OL);
+  px(X(4),y+24,3,8,jean); px(X(10),y+24,3,8,jean); px(X(4),y+24,2,8,shade(jean,1.2));
   px(X(4),y+31,5,2,'#111'); px(X(10),y+31,5,2,'#111');
   // neon shirt
-  px(X(4),y+13,10,12,'#1a1030');
+  px(X(4),y+13,10,12,shirt); px(X(4),y+13,3,12,shade(shirt,1.5)); px(X(12),y+13,2,12,shade(shirt,0.6));
   var cc=['#ff3bd0','#3bd0ff','#b0ff3b','#ffd23b'];
   for(var i=0;i<4;i++){ px(X(5+i*2),y+15+((i%2)*4),1,1,cc[i]); px(X(6+((i+1)%4)),y+18,1,1,cc[(i+2)%4]); }
-  px(X(1),y+14,3,8,'#1a1030'); px(X(14),y+14,3,8,'#1a1030');
+  px(X(1),y+14,3,8,shirt); px(X(14),y+14,3,8,shirt);
   px(X(1),y+21,3,2,P.skin); px(X(14),y+21,3,2,P.skin);
   // head + cap
-  px(X(5),y+4,8,8,P.skin);
+  px(X(5),y+4,8,8,P.skin); px(X(5),y+4,8,2,shade(P.skin,1.08)); px(X(5),y+10,8,2,P.skinD);
   px(X(6),y+10,6,1,'#8a6a4a');
-  px(X(4),y+2,10,3,'#8a3b3b'); px(X(3),y+4,5,2,'#8a3b3b'); px(X(8),y+2,3,2,'#d8c8a0');
+  px(X(4),y+2,10,3,'#8a3b3b'); px(X(4),y+2,10,1,'#a85252'); px(X(3),y+4,5,2,'#8a3b3b'); px(X(8),y+2,3,2,'#d8c8a0');
   px(X(7),y+6,1,1,'#111'); px(X(10),y+6,1,1,'#111'); px(X(8),y+8,3,1,'#a03040');
   endFlip(flipped);
 }
@@ -1120,11 +1128,13 @@ function drawCreepy(e){
   var sx=e.x-world.scrollX, sy=e.y; if(sx<-20||sx>VW+20) return;
   var flipped=beginFlip(sx,14,e.face); function X(x){ return sx+x; }
   var wob=Math.sin(e.walkT*6+e.wob)*1|0; var y=sy+wob;
-  var body=e.tone?'#9aa0b0':'#b0a89a';
-  px(X(3),y+12,3,4,'#333'); px(X(8),y+12,3,4,'#333');
-  px(X(2),y+5,10,9,body);
+  var body=e.tone?'#9aa0b0':'#b0a89a', bH=shade(body,1.2), bD=shade(body,0.72), OL='#20222c';
+  // outline
+  px(X(2),y-1,10,9,OL); px(X(1),y+4,12,11,OL); px(X(3),y+11,3,5,OL); px(X(8),y+11,3,5,OL);
+  px(X(3),y+12,3,4,'#2a2a30'); px(X(8),y+12,3,4,'#2a2a30');
+  px(X(2),y+5,10,9,body); px(X(2),y+5,3,9,bH); px(X(9),y+5,3,9,bD);
   px(X(0),y+6,2,7,body); px(X(12),y+6,2,7,body);
-  px(X(3),y,8,7,body);
+  px(X(3),y,8,7,body); px(X(3),y,8,2,bH);
   px(X(4),y+2,2,2,P.white); px(X(8),y+2,2,2,P.white);
   px(X(5),y+3,1,1,'#111'); px(X(9),y+3,1,1,'#111');
   px(X(4),y+5,6,1,'#3a1a1a');
@@ -1134,25 +1144,29 @@ function drawCreepy(e){
 function drawKidJordan(sx,sy,face,state,anim,flash){
   var flipped=beginFlip(sx,18,face); function X(x){ return sx+x; }
   var bob=(state==='walk')?(Math.sin(anim)*1|0):0; var y=sy+bob;
-  // legs + sneakers
-  px(X(6),y+18,4,5,P.skin); px(X(10),y+18,4,5,P.skin);
-  px(X(5),y+22,5,2,'#222'); px(X(10),y+22,5,2,'#222');
+  var tee=flash?'#fff':'#202226', teeH=flash?'#fff':'#33363d', teeD=flash?'#e8e8e8':'#141518', shortc='#181a1f';
+  var skin=P.skin,skinD=P.skinD,hair='#7a5330',hairH='#9c6f42',OL='#0e0f12';
+  // outline
+  px(X(5),y-1,13,10,OL); px(X(4),y+8,15,10,OL); px(X(3),y+9,4,7,OL); px(X(15),y+9,4,7,OL); px(X(6),y+17,5,7,OL); px(X(12),y+17,5,7,OL);
+  // sneakers + legs
+  px(X(6),y+22,5,2,'#20242e'); px(X(12),y+22,5,2,'#20242e'); px(X(7),y+17,4,6,skin); px(X(12),y+17,4,6,skin);
   // shorts
-  px(X(4),y+15,12,4,'#111');
-  // black tee w/ white star
-  px(X(4),y+7,12,9, flash?'#fff':'#161616');
+  px(X(5),y+14,13,4,shortc); px(X(5),y+14,13,1,shade(shortc,1.6));
+  // tee
+  px(X(5),y+7,13,8,tee); px(X(5),y+7,3,8,teeH); px(X(15),y+7,3,8,teeD);
+  // white star
   var sc=flash?'#161616':'#fff';
-  px(X(9),y+9,1,4,sc); px(X(7),y+10,5,1,sc); px(X(8),y+12,1,2,sc); px(X(10),y+12,1,2,sc);
+  px(X(10),y+8,1,4,sc); px(X(8),y+9,5,1,sc); px(X(9),y+11,1,2,sc); px(X(11),y+11,1,2,sc);
   // arms by pose
-  if(state==='throw'){ px(X(14),y+6,7,4,P.skin); px(X(0),y+9,4,5,P.skin); }
-  else if(state==='cheer'||state==='hug'){ px(X(0),y+6,4,6,P.skin); px(X(14),y+6,4,6,P.skin); }
-  else { px(X(0),y+8,4,6,P.skin); px(X(14),y+8,4,6,P.skin); }
-  // big kid head + brown hair
-  px(X(4),y-1,11,9,P.skin);
-  px(X(4),y-3,11,3,'#7a5a3a');
-  px(X(7),y+2,1,1,'#111'); px(X(11),y+2,1,1,'#111');
-  // mischievous grin
-  px(X(7),y+5,5,1,'#a03040'); px(X(8),y+5,1,1,'#fff');
+  if(state==='throw'){ px(X(15),y+8,6,4,skin); px(X(2),y+11,4,5,skin); }
+  else if(state==='cheer'||state==='hug'){ px(X(1),y+4,4,6,skin); px(X(14),y+4,4,6,skin); }
+  else { px(X(1),y+8,4,6,skin); px(X(14),y+8,4,6,skin); }
+  // big kid head
+  px(X(4),y-1,12,9,skin); px(X(4),y-1,12,2,shade(skin,1.08)); px(X(4),y+7,12,2,skinD);
+  px(X(4),y-3,12,3,hair); px(X(4),y-3,12,1,hairH); px(X(3),y-1,2,4,hair); px(X(15),y-1,2,4,hair);
+  // clean friendly face
+  px(X(7),y+2,2,2,'#141018'); px(X(12),y+2,2,2,'#141018'); px(X(7),y+2,1,1,'#fff'); px(X(12),y+2,1,1,'#fff');
+  px(X(8),y+6,5,1,'#9a5450');
   endFlip(flipped);
 }
 function drawJordan(){ // Emma-mode boss
@@ -1171,31 +1185,49 @@ function drawOgre(e){
   var sx=e.x-world.scrollX, sy=e.y; if(sx<-24||sx>VW+24) return;
   var flipped=beginFlip(sx,20,e.face); function X(x){ return sx+x; }
   var wob=Math.sin(e.walkT*5)*1|0; var y=sy+wob;
-  var G='#5fa03a', Gd='#4a7d2c';
-  px(X(4),y+20,5,6,Gd); px(X(11),y+20,5,6,Gd);
-  px(X(3),y+25,7,2,'#3a2a1a'); px(X(11),y+25,7,2,'#3a2a1a');
-  px(X(2),y+10,16,12,'#8a6a3a');       // brown tunic
-  px(X(4),y+12,12,7,G);                // green belly
-  px(X(0),y+11,3,8,G); px(X(17),y+11,3,8,G);
-  px(X(4),y+1,12,10,G);                // head
-  px(X(2),y+3,2,3,G); px(X(16),y+3,2,3,G); // small round ears
-  px(X(6),y+3,3,1,Gd); px(X(11),y+3,3,1,Gd); // brow
-  px(X(6),y+4,2,2,'#fff'); px(X(12),y+4,2,2,'#fff'); px(X(7),y+5,1,1,'#111'); px(X(12),y+5,1,1,'#111');
-  px(X(6),y+8,8,2,'#6a8f3a'); px(X(7),y+9,1,2,'#fff'); px(X(12),y+9,1,2,'#fff'); // underbite tusks
+  var G='#5aa03a',GD='#3f7a24',GH='#78c24a',tun='#8a6a3a',tunD='#634a26',OL='#173d10';
+  // outline
+  px(X(3),y,14,12,OL); px(X(1),y+8,18,15,OL); px(X(0),y+10,4,10,OL); px(X(16),y+10,4,10,OL); px(X(4),y+22,6,6,OL); px(X(11),y+22,6,6,OL);
+  // feet + legs
+  px(X(4),y+25,6,2,'#2a1e12'); px(X(11),y+25,6,2,'#2a1e12'); px(X(5),y+20,5,6,GD); px(X(11),y+20,5,6,GD);
+  // tunic + belly
+  px(X(2),y+9,16,13,tun); px(X(2),y+9,16,2,shade(tun,1.3)); px(X(2),y+20,16,2,tunD);
+  px(X(5),y+11,11,8,G); px(X(5),y+11,3,8,GH); px(X(13),y+11,3,8,GD);
+  // arms
+  px(X(0),y+10,4,9,G); px(X(16),y+10,4,9,G); px(X(0),y+10,4,2,GH); px(X(16),y+17,4,2,GD);
+  // head
+  px(X(4),y,13,11,G); px(X(4),y,13,2,GH); px(X(4),y+8,13,2,GD);
+  // ears
+  px(X(2),y+2,3,4,G); px(X(16),y+2,3,4,G);
+  // brow + eyes
+  px(X(6),y+2,4,1,GD); px(X(11),y+2,4,1,GD);
+  px(X(6),y+3,3,2,'#fff'); px(X(12),y+3,3,2,'#fff'); px(X(7),y+4,1,1,'#141'); px(X(13),y+4,1,1,'#141');
+  // underbite + tusks
+  px(X(6),y+7,9,2,shade(G,0.8)); px(X(7),y+8,2,3,'#fff'); px(X(12),y+8,2,3,'#fff');
   endFlip(flipped);
 }
 function drawTony(){
-  var sx=boss.x-world.scrollX, sy=boss.y; var flipped=beginFlip(sx,22,boss.dir); function X(x){ return sx+x; }
+  var sx=boss.x-world.scrollX, sy=boss.y; var flipped=beginFlip(sx,24,boss.dir); function X(x){ return sx+x; }
   var bob=Math.sin(boss.t*6)*1|0; var y=sy+bob;
   var flash=boss.inv>0 && (Math.floor(blinkT*20)%2===0);
-  px(X(5),y+24,6,10,'#3a3f52'); px(X(12),y+24,6,10,'#3a3f52');
-  px(X(4),y+33,8,2,'#111'); px(X(12),y+33,8,2,'#111');
-  px(X(4),y+12,15,13, flash?'#fff':'#d86a2a'); // tank top
-  px(X(0),y+12,4,9,P.skin); px(X(19),y+12,4,9,P.skin); // buff arms
-  px(X(6),y+2,11,10,P.skin);
-  px(X(5),y+1,13,3,'#b03030'); px(X(4),y+3,3,2,'#b03030'); // backwards cap
-  px(X(8),y+5,2,1,'#111'); px(X(13),y+5,2,1,'#111');
-  px(X(9),y+9,5,1,'#7a2a2a'); // scowl
+  var tank=flash?'#fff':'#e07a2a', tankD=flash?'#e8e8e8':'#b25716', tankH=flash?'#fff':'#f4a24e';
+  var jean='#3a3f52',jeanD='#282c3b',skin='#eab97e',skinD='#bf8c52',cap='#b0302e',capH='#d0524e',OL='#120c0a';
+  // outline
+  px(X(5),y+1,15,11,OL); px(X(3),y+11,18,15,OL); px(X(1),y+11,4,12,OL); px(X(19),y+11,4,12,OL); px(X(5),y+25,8,11,OL); px(X(12),y+25,8,11,OL);
+  // shoes + baggy jeans
+  px(X(6),y+34,7,2,'#111'); px(X(12),y+34,7,2,'#111');
+  px(X(6),y+24,7,11,jean); px(X(12),y+24,7,11,jean); px(X(6),y+24,3,11,shade(jean,1.2)); px(X(16),y+24,3,11,jeanD);
+  // tank top
+  px(X(4),y+12,15,13,tank); px(X(4),y+12,3,13,tankH); px(X(16),y+12,3,13,tankD);
+  // buff arms
+  px(X(1),y+12,4,10,skin); px(X(19),y+12,4,10,skin); px(X(1),y+12,4,2,shade(skin,1.1)); px(X(19),y+18,4,2,skinD);
+  // head
+  px(X(6),y+2,12,10,skin); px(X(6),y+2,12,2,shade(skin,1.08)); px(X(6),y+10,12,2,skinD);
+  // backwards cap
+  px(X(5),y+1,14,3,cap); px(X(5),y+1,14,1,capH); px(X(4),y+3,3,2,cap);
+  // mean face
+  px(X(8),y+4,3,1,OL); px(X(13),y+4,3,1,OL); px(X(8),y+5,2,1,OL); px(X(14),y+5,2,1,OL);
+  px(X(9),y+9,6,1,'#7a2a2a');
   endFlip(flipped);
   if(boss.taunt>0 && !boss.defeated) speechBubble(sx-6, sy-16, boss.line);
   if(!boss.defeated){ var bx0=86, bw=VW-8-bx0; px(bx0,7,bw,9,P.black); px(bx0+1,8,bw-2,7,P.hpBg); px(bx0+1,8,(bw-2)*Math.max(0,boss.hp)/boss.maxHp,7,P.hp); g.fillStyle=P.white; g.font='7px monospace'; g.textAlign='center'; g.textBaseline='top'; gtext('TONY (school bully)', bx0+bw/2, 17); }
