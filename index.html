@@ -61,7 +61,7 @@
    Single-file, canvas 2D, procedural pixel art + chiptune.
    Deploy: this is index.html at repo root (GitHub Pages).
    ============================================================ */
-var BUILD = "1786196912"; // replaced at deploy time (unix ts)
+var BUILD = "1786217494"; // replaced at deploy time (unix ts)
 
 /* -------------------- Self-updater (matches your deploy flow) -------------------- */
 (function(){
@@ -118,7 +118,12 @@ var ROSTER = [
     a1:'WHOOPEE CUSHION', a2:'WATER GEYSER',
     enemyName:'GREEN OGRES',
     bossName:'TONY',
-    bossLines:['gimme your lunch money','TIMEOUT, loser!','nerd alert','you throw like a baby','hand over the iPad'] }
+    bossLines:['gimme your lunch money','TIMEOUT, loser!','nerd alert','you throw like a baby','hand over the iPad'] },
+  { id:'presley', name:'PRESLEY', locked:false, mode:"PRESLEY'S PARLOR",
+    sub:'milk the goats, fill the pail', i1:'🧀', i2:'🐈‍⬛',
+    tagline:'Presley milks goats (she calls it goat jizz) while the family swarms her.',
+    a1:'CHEESE DUSTER', a2:'FRIDAY THE CAT',
+    enemyName:'RONDA, TODD & SOOKIE' }
 ];
 
 /* ============================================================
@@ -330,7 +335,10 @@ var SFX = {
   fart:function(){ if(!audioReady||muted) return; var o=AC.createOscillator(), gg=AC.createGain(), t=AC.currentTime; o.type='sawtooth'; o.frequency.setValueAtTime(95,t); o.frequency.linearRampToValueAtTime(55,t+0.28); gg.gain.setValueAtTime(0.25,t); gg.gain.exponentialRampToValueAtTime(0.001,t+0.3); o.connect(gg); gg.connect(master); o.start(t); o.stop(t+0.32); noise(0.12,0.09); },
   throwPop:function(){ blip(300,0.05,'square',0.2); noise(0.03,0.1); },
   geyser:function(){ if(!audioReady||muted) return; noise(0.5,0.18); var o=AC.createOscillator(), gg=AC.createGain(), t=AC.currentTime; o.type='sine'; o.frequency.setValueAtTime(200,t); o.frequency.linearRampToValueAtTime(700,t+0.4); gg.gain.setValueAtTime(0.16,t); gg.gain.exponentialRampToValueAtTime(0.001,t+0.5); o.connect(gg); gg.connect(master); o.start(t); o.stop(t+0.5); },
-  crash:function(){ if(!audioReady||muted) return; noise(0.35,0.32); [40,32,28].forEach(function(f,i){ setTimeout(function(){ var o=AC.createOscillator(),gg=AC.createGain(),t=AC.currentTime; o.type='square'; o.frequency.value=f*8; gg.gain.setValueAtTime(0.2,t); gg.gain.exponentialRampToValueAtTime(0.001,t+0.18); o.connect(gg); gg.connect(master); o.start(t); o.stop(t+0.2); }, i*60); }); }
+  crash:function(){ if(!audioReady||muted) return; noise(0.35,0.32); [40,32,28].forEach(function(f,i){ setTimeout(function(){ var o=AC.createOscillator(),gg=AC.createGain(),t=AC.currentTime; o.type='square'; o.frequency.value=f*8; gg.gain.setValueAtTime(0.2,t); gg.gain.exponentialRampToValueAtTime(0.001,t+0.18); o.connect(gg); gg.connect(master); o.start(t); o.stop(t+0.2); }, i*60); }); },
+  cheese:function(){ if(!audioReady||muted) return; noise(0.22,0.14); blip(360,0.05,'sawtooth',0.16); setTimeout(function(){ blip(300,0.06,'sawtooth',0.14); },70); },
+  meow:function(){ if(!audioReady||muted) return; var o=AC.createOscillator(), gg=AC.createGain(), t=AC.currentTime; o.type='sawtooth'; o.frequency.setValueAtTime(620,t); o.frequency.linearRampToValueAtTime(880,t+0.12); o.frequency.linearRampToValueAtTime(520,t+0.3); gg.gain.setValueAtTime(0.16,t); gg.gain.exponentialRampToValueAtTime(0.001,t+0.34); o.connect(gg); gg.connect(master); o.start(t); o.stop(t+0.35); },
+  magic:function(){ if(!audioReady||muted) return; [72,79,84,88].forEach(function(m,i){ setTimeout(function(){ blip(midi(m),0.1,'triangle',0.2); },i*70); }); noise(0.3,0.06); }
 };
 
 /* Music scheduler */
@@ -403,6 +411,8 @@ var items, clockT, clockMax, ethan, anxT, anxFX, emmaLoseReason;
 // Jordan level
 var J_TRIGGER=3250, J_ARENA_L=3300, J_ARENA_R=3460, IPAD_X=3520;
 var structs, geyserFX;
+// Presley level
+var goats, milks, pail, pailMax, friday, presleySpawnT;
 
 function resetGame(){
   world.scrollX=0;
@@ -413,7 +423,7 @@ function resetGame(){
   enemies=[]; projectiles=[]; particles=[]; floats=[];
   score=0; combo=0; comboTimer=0; shake=0; winTimer=0; blinkT=0; introT=1.6;
   A1_CD=0; A2_CD=0;
-  if(char.id==='emma') emmaSetup(); else if(char.id==='jordan') jordanSetup(); else rondaSetup();
+  if(char.id==='emma') emmaSetup(); else if(char.id==='jordan') jordanSetup(); else if(char.id==='presley') presleySetup(); else rondaSetup();
 }
 function rondaSetup(){
   boss={ active:false, x:BOSS_X, y:GROUND-40, w:26, h:40, hp:10, maxHp:10, t:0, inv:0, state:'walk', dir:-1, defeated:false, taunt:0, tauntCd:1.2, line:'' };
@@ -553,6 +563,9 @@ var BARKS=['woof','woof!','WOOF','14','14!','1-4','14?','woof 14','14!!','bark',
 function makeP(x,y,type){
   var a=Math.random()*Math.PI*2;
   if(type==='gas'){ return { x:x,y:y, vx:(Math.random()*2-1)*22, vy:-14-Math.random()*22, t:0, life:0.7+Math.random()*0.5, type:type }; }
+  if(type==='fume'){ return { x:x,y:y, vx:(Math.random()*2-1)*16, vy:-18-Math.random()*20, t:0, life:0.6+Math.random()*0.5, type:type }; }
+  if(type==='magic'){ return { x:x,y:y, vx:(Math.random()*2-1)*30, vy:-30-Math.random()*40, t:0, life:0.6+Math.random()*0.5, type:type }; }
+  if(type==='milk'){ return { x:x,y:y, vx:(Math.random()*2-1)*24, vy:-Math.random()*50-10, t:0, life:0.5+Math.random()*0.3, type:type }; }
   if(type==='bark'){
     var ba=Math.random()*Math.PI*2, bs=55+Math.random()*75;
     var o={ x:x,y:y, vx:Math.cos(ba)*bs, vy:Math.sin(ba)*bs-18, t:0, life:1.1+Math.random()*0.5, type:type };
@@ -592,6 +605,7 @@ function update(dt){
   if(!K.jump && player.vy<-70) player.vy=-70;
   if(char.id==='emma'){ if(a1Edge) doSnack(); if(a2Edge) doEthan(); }
   else if(char.id==='jordan'){ if(a1Edge) doWhoopie(); if(a2Edge) doGeyser(); }
+  else if(char.id==='presley'){ if(a1Edge) doCheese(); if(a2Edge) doFriday(); }
   else { if(a1Edge) doAttack1(); if(a2Edge) doAttack2(); }
   jumpEdge=a1Edge=a2Edge=false;
 
@@ -620,12 +634,12 @@ function update(dt){
   var maxScroll = world.len - VW;
   if(world.scrollX>maxScroll) world.scrollX=maxScroll;
 
-  if(char.id==='emma') emmaEntities(dt); else if(char.id==='jordan') jordanEntities(dt); else rondaEntities(dt);
+  if(char.id==='emma') emmaEntities(dt); else if(char.id==='jordan') jordanEntities(dt); else if(char.id==='presley') presleyEntities(dt); else rondaEntities(dt);
 
   // particles / floats
   for(var k=particles.length-1;k>=0;k--){ var pt=particles[k]; pt.t+=dt; pt.x+=pt.vx*dt; pt.y+=pt.vy*dt;
     if(pt.type==='bark'){ var d=Math.min(1,dt*4.5); pt.vx-=pt.vx*d; pt.vy-=pt.vy*d; }
-    else if(pt.type!=='heart' && pt.type!=='gas') pt.vy+=200*dt;
+    else if(pt.type!=='heart' && pt.type!=='gas' && pt.type!=='fume' && pt.type!=='magic') pt.vy+=200*dt;
     if(pt.t>pt.life) particles.splice(k,1); }
   for(var f=floats.length-1;f>=0;f--){ var fl=floats[f]; fl.t+=dt; fl.y-=18*dt; if(fl.t>1.1) floats.splice(f,1); }
 
@@ -827,6 +841,95 @@ var jNag=0;
 function allStructs(){ return structs.every(function(s){ return s.dead; }); }
 function onJordanWin(){ STATE='WIN'; winTimer=0; SFX.win(); mus.on=false;
   for(var i=0;i<30;i++) particles.push(makeP(player.x+10, player.y, 'star')); }
+
+/* ============================================================
+   PRESLEY MODULE — milk goats to fill the pail; family swarms
+   ============================================================ */
+function makeGoat(x){ return { x:x, y:GROUND-16, w:18, h:16, dir:(Math.random()<0.5?-1:1), walkT:Math.random()*6, cd:0 }; }
+function makePEnemy(kind,x,dir){ var h = kind==='sookie'?14 : (kind==='todd'?40:34);
+  return { kind:kind, x:x, y:GROUND-h, w:(kind==='sookie'?24:20), h:h, dir:dir, face:dir, walkT:Math.random()*6, anim:0, hp:(kind==='todd'?3:2), ko:false, koT:0 }; }
+function presleySetup(){
+  world.len=3000; player.w=20; player.h=32; player.y=GROUND-32; // a bit shorter than Ronda
+  goats=[]; var gx=360; while(gx<world.len-220){ goats.push(makeGoat(gx)); gx += 150+Math.random()*130; }
+  milks=[]; pail=0; pailMax=16;
+  friday={ active:false, mode:'', x:0, y:0, t:0, cx:0, zapped:false };
+  enemies=[]; presleySpawnT=1.4; mus.boss=false;
+}
+function doCheese(){
+  if(A1_CD>0) return; A1_CD=0.55; player.state='throw'; player.throwT=0.18;
+  projectiles.push({ x:player.x+player.w/2+player.face*8, y:player.y+13, vx:player.face*150, vy:-8, rot:0, type:'cheese', owner:'player', life:0, r:17 });
+  SFX.cheese();
+  addFloat('CHEESE DUST!', player.x+player.w/2, player.y-14, '#f0a83b', 11);
+}
+function doFriday(){
+  if(A2_CD>0 || friday.active) return; A2_CD=3.4;
+  friday.active=true; friday.mode='run'; friday.t=0; friday.zapped=false;
+  friday.x = player.x - player.face*70; friday.y=GROUND-12;
+  SFX.meow();
+  addFloat('FRIDAY!', player.x+player.w/2, player.y-16, '#c39bff', 13);
+}
+function updateFriday(dt){
+  if(!friday.active) return; friday.t+=dt;
+  if(friday.mode==='run'){
+    var tgt=player.x - player.face*14; friday.x += (tgt-friday.x)*Math.min(1,dt*7);
+    if(Math.abs(friday.x-tgt)<6 || friday.t>0.9){ friday.mode='love'; friday.t=0; player.state='hug'; player.hugT=0.9;
+      for(var i=0;i<7;i++) particles.push(makeP(player.x+10,player.y+4,'heart'));
+      if(player.hp<player.maxHp){ player.hp++; addFloat('+1 \u2665',player.x,player.y-14,P.heart); } }
+  } else if(friday.mode==='love'){
+    if(friday.t>0.7){ friday.mode='cauldron'; friday.t=0; friday.cx=player.x + player.face*20; SFX.magic(); }
+  } else if(friday.mode==='cauldron'){
+    if(friday.t<0.6 && Math.random()<0.8) particles.push(makeP(friday.cx+(Math.random()*16-8), GROUND-16,'magic'));
+    if(friday.t>0.5 && !friday.zapped){ friday.zapped=true; var R=74;
+      for(var i=0;i<enemies.length;i++){ var e=enemies[i]; if(e.ko) continue;
+        if(Math.abs(e.x-friday.cx)<R){ e.ko=true; e.koT=0; addScore(120,e.x,e.y-10); for(var p=0;p<6;p++) particles.push(makeP(e.x+8,e.y,'magic')); } }
+      shake=6; addFloat('\u2726 MAGIC \u2726', friday.cx, GROUND-32, '#c39bff', 12); }
+    if(friday.t>1.2){ friday.mode='leave'; friday.t=0; }
+  } else { friday.x -= player.face*150*dt; if(friday.t>1.0) friday.active=false; }
+}
+function onPresleyWin(){ STATE='WIN'; winTimer=0; SFX.win(); mus.on=false;
+  for(var i=0;i<30;i++) particles.push(makeP(player.x+10, player.y, 'heart')); }
+function presleyEntities(dt){
+  updateFriday(dt);
+  // enemy waves — Ronda / Todd / Sookie keep coming
+  presleySpawnT-=dt;
+  var alive=0; for(var a=0;a<enemies.length;a++){ if(!enemies[a].ko) alive++; }
+  var cap=3+Math.min(3,(pail/5)|0);
+  if(presleySpawnT<=0 && alive<cap){ presleySpawnT=2.2-Math.min(1.3,pail*0.06);
+    var kinds=['ronda','todd','sookie'], k=kinds[(Math.random()*3)|0], fromLeft=Math.random()<0.5;
+    var ex=fromLeft? world.scrollX-24 : world.scrollX+VW+24;
+    enemies.push(makePEnemy(k, ex, fromLeft?1:-1)); }
+  // enemies chase / KO decay
+  for(var i=enemies.length-1;i>=0;i--){ var e=enemies[i];
+    if(e.ko){ e.koT+=dt; if(e.koT>1.3){ enemies.splice(i,1); } continue; }
+    e.walkT+=dt; e.anim+=dt*10; var dir=(player.x<e.x)?-1:1; e.face=dir;
+    var spd=e.kind==='sookie'?70:(e.kind==='todd'?36:54); e.x += dir*spd*dt;
+    if(player.inv<=0 && aabb(player.x,player.y,player.w,player.h,e.x,e.y,e.w,e.h)) hurtPlayer(1, e.x<player.x?1:-1);
+  }
+  // goats wander + flee from Presley
+  for(var g=0;g<goats.length;g++){ var go=goats[g]; go.walkT+=dt; if(go.cd>0) go.cd-=dt;
+    if(Math.abs(go.x-player.x)<52){ go.dir=(player.x<go.x)?1:-1; go.x += go.dir*38*dt; }
+    else { go.x += go.dir*16*dt; if(Math.random()<0.01) go.dir*=-1; }
+    if(go.x<220) go.dir=1; if(go.x>world.len-40) go.dir=-1;
+  }
+  // milk pickups (collect before they vanish)
+  for(var m=milks.length-1;m>=0;m--){ var mk=milks[m]; mk.t+=dt;
+    if(aabb(player.x,player.y,player.w,player.h, mk.x-6,mk.y-8,12,12)){ milks.splice(m,1); pail=Math.min(pailMax,pail+1); SFX.pickup(); addScore(60,mk.x,mk.y-8); addFloat('MILK!',mk.x,mk.y-12,'#ffffff',9);
+      if(pail>=pailMax && STATE==='PLAY'){ onPresleyWin(); } continue; }
+    if(mk.t>4.6) milks.splice(m,1);
+  }
+  // cheese-duster clouds
+  for(var p=projectiles.length-1;p>=0;p--){ var pr=projectiles[p]; pr.x+=pr.vx*dt; pr.y+=pr.vy*dt; pr.life+=dt;
+    if(Math.random()<0.85) particles.push(makeP(pr.x+(Math.random()*12-6), pr.y-2,'fume'));
+    for(var q=0;q<enemies.length;q++){ var e2=enemies[q]; if(e2.ko) continue;
+      if(Math.abs(e2.x-pr.x)<pr.r && Math.abs((e2.y+e2.h/2)-pr.y)<26){ e2.hp--; for(var f=0;f<3;f++) particles.push(makeP(e2.x+8,e2.y+6,'fume'));
+        if(e2.hp<=0){ e2.ko=true; e2.koT=0; addScore(100,e2.x,e2.y-10); } } }
+    for(var gg=0;gg<goats.length;gg++){ var go2=goats[gg]; if(go2.cd>0) continue;
+      if(Math.abs(go2.x-pr.x)<pr.r+4){ go2.cd=6; milks.push({ x:go2.x+(Math.random()*10-5), y:GROUND-8, t:0 });
+        for(var s=0;s<4;s++) particles.push(makeP(go2.x+8,GROUND-8,'milk')); addFloat('secreted!',go2.x,GROUND-24,'#dffbff',8); } }
+    if(pr.life>1.35 || pr.x<world.scrollX-40 || pr.x>world.scrollX+VW+40) projectiles.splice(p,1);
+  }
+}
+
 function jordanEntities(dt){
   if(geyserFX>0) geyserFX-=dt;
   // ogres
@@ -899,17 +1002,19 @@ function drawRonda(sx,sy,face,state,anim){
   var skin=P.skin,skinD=P.skinD,hair='#c39a4e',hairH='#e2c27a',hairD='#8a5f2c',fur='#e3d8c0',furD='#b3a888';
   // outline silhouette
   px(X(5),y+1,12,5,OL); px(X(3),y+5,15,23,OL); px(X(2),y+15,3,10,OL); px(X(16),y+15,3,10,OL); px(X(5),y+25,5,11,OL); px(X(12),y+25,5,11,OL);
-  // boots
-  px(X(6),y+33,4,3,'#2a2016'); px(X(12),y+33,4,3,'#2a2016'); px(X(6),y+32,4,1,shade('#2a2016',1.5));
-  // legs
-  px(X(6),y+26,4,8,parD); px(X(12),y+26,4,8,parD); px(X(6),y+26,2,8,par);
+  // boots + legs (alternating stride when walking)
+  var stp=(state==='walk')?Math.sin(anim):0;
+  var la=stp>0?2:0, lb=stp<0?2:0, lax=stp>0?1:0, lbx=stp<0?-1:0;
+  px(X(6+lax),y+26-la,4,8,parD); px(X(6+lax),y+26-la,2,8,par);
+  px(X(12+lbx),y+26-lb,4,8,parD);
+  px(X(6+lax),y+31-la,4,3,'#2a2016'); px(X(12+lbx),y+31-lb,4,3,'#2a2016');
   // parka body
   px(X(4),y+13,14,14,par); px(X(4),y+13,3,14,parH); px(X(15),y+13,3,14,parD);
   px(X(6),y+16,10,1,parD); px(X(6),y+20,10,1,parD); px(X(6),y+23,10,1,parD); // puff seams
   // arms by state
   if(state==='hug'){ px(X(2),y+14,4,7,par); px(X(15),y+14,4,7,par); px(X(2),y+14,4,2,parH); px(X(2),y+20,3,2,skin); px(X(16),y+20,3,2,skin); }
   else if(state==='pet'){ px(X(14),y+18,4,7,par); px(X(2),y+15,3,8,par); px(X(15),y+24,3,2,skin); px(X(2),y+22,3,2,skin); }
-  else { px(X(2),y+14,3,10,par); px(X(15),y+14,3,10,par); px(X(2),y+14,3,2,parH); px(X(15),y+21,3,2,parD); px(X(2),y+23,3,2,skin); px(X(15),y+23,3,2,skin); }
+  else { var aw=(state==='walk')?(stp>0?1:-1):0; px(X(2),y+14+aw,3,10,par); px(X(15),y+14-aw,3,10,par); px(X(2),y+14+aw,3,2,parH); px(X(15),y+21-aw,3,2,parD); px(X(2),y+23+aw,3,2,skin); px(X(15),y+23-aw,3,2,skin); }
   // fur hood collar
   px(X(4),y+10,14,4,fur); px(X(3),y+11,3,3,fur); px(X(15),y+11,3,3,fur); px(X(5),y+13,12,1,furD);
   // head
@@ -989,40 +1094,33 @@ function speechBubble(x,y,txt){
   g.fillStyle=P.black; g.textAlign='left'; g.textBaseline='top';
   gtext(txt, x+3, y+3);
 }
-function drawTodd(){
-  var sx=boss.x-world.scrollX, sy=boss.y; var flipped=beginFlip(sx,26,boss.dir); function X(x){ return sx+x; }
-  var bob=Math.sin(boss.t*6+performance.now()*0.003)*1|0;
-  var y=sy+bob;
-  var flash = boss.inv>0 && (Math.floor(blinkT*20)%2===0);
+function drawToddBody(sx,sy,face,flash,cackle){
+  var flipped=beginFlip(sx,26,face); function X(x){ return sx+x; }
+  var bob=Math.sin(performance.now()*0.005)*1|0; var y=sy+bob;
   var OL='#0f0f16';
-  // outline
   px(X(7),y+1,12,11,OL); px(X(3),y+11,20,16,OL); px(X(0),y+12,4,12,OL); px(X(20),y+12,4,12,OL); px(X(5),y+29,7,12,OL); px(X(14),y+29,7,12,OL);
-  // legs (bare — shorts!)
   px(X(6),y+30,5,10,P.skin); px(X(15),y+30,5,10,P.skin); px(X(6),y+30,2,10,shade(P.skin,1.1));
   px(X(5),y+38,7,3,'#111'); px(X(14),y+38,7,3,'#111');
-  // shorts (khaki)
   px(X(5),y+26,16,7,P.shorts); px(X(5),y+26,16,2,shade(P.shorts,1.25)); px(X(5),y+31,16,2,P.shortsD);
-  // suit jacket
   var jc = flash? P.white : P.toddSuit, jcH=flash?P.white:shade(P.toddSuit,1.25), jcD=flash?'#ddd':P.toddSuitD;
   px(X(4),y+12,18,15,jc); px(X(4),y+12,3,15,jcH); px(X(19),y+12,3,15,jcD);
-  // white shirt + red tie
   px(X(11),y+12,4,13,P.shirt); px(X(12),y+13,2,10,P.tie); px(X(12),y+13,2,1,shade(P.tie,1.3));
-  // lapels
   px(X(8),y+12,3,6,jcD); px(X(15),y+12,3,6,jcD);
-  // arms
   px(X(1),y+13,4,10,jc); px(X(21),y+13,4,10,jc); px(X(1),y+13,4,2,jcH);
   px(X(1),y+22,4,3,P.skin); px(X(21),y+22,4,3,P.skin);
-  // head
   px(X(8),y+2,10,10,P.skin); px(X(8),y+2,10,2,shade(P.skin,1.08)); px(X(8),y+10,10,2,P.skinD);
-  px(X(8),y-1,10,4,P.woodD); px(X(8),y-1,10,1,shade(P.woodD,1.4)); // hair
-  px(X(10),y+6,2,1,'#111'); px(X(14),y+6,2,1,'#111'); // eyes
-  // mouth: open + cackling while taunting, else stern
-  if(boss.taunt>0 && !boss.defeated){ px(X(11),y+8,4,3,'#111'); px(X(12),y+9,2,1,P.red); }
+  px(X(8),y-1,10,4,P.woodD); px(X(8),y-1,10,1,shade(P.woodD,1.4));
+  px(X(10),y+6,2,1,'#111'); px(X(14),y+6,2,1,'#111');
+  if(cackle){ px(X(11),y+8,4,3,'#111'); px(X(12),y+9,2,1,P.red); }
   else px(X(11),y+9,4,1,P.skinD);
   endFlip(flipped);
-  // taunt bubble
-  if(boss.taunt>0 && !boss.defeated){ speechBubble(sx-4,y-16, boss.line); }
-  // boss HP bar (right of the hearts so it never collides)
+}
+function drawTodd(){
+  var sx=boss.x-world.scrollX, sy=boss.y;
+  var flash = boss.inv>0 && (Math.floor(blinkT*20)%2===0);
+  var cackle = boss.taunt>0 && !boss.defeated;
+  drawToddBody(sx, sy, boss.dir, flash, cackle);
+  if(cackle){ speechBubble(sx-4,sy-16, boss.line); }
   if(!boss.defeated){
     var bx0=86, bw=VW-8-bx0;
     px(bx0,7,bw,9,P.black); px(bx0+1,8,bw-2,7,P.hpBg);
@@ -1052,6 +1150,9 @@ function drawParticle(p){
   else if(p.type==='gas'){ px(x-1,y-1,3,3,'#8fd07a'); px(x+1,y,1,1,'#6fb05a'); }
   else if(p.type==='water'){ px(x,y,2,2,'#5aa0e0'); px(x,y-1,1,1,'#bfe0ff'); }
   else if(p.type==='debris'){ px(x,y,2,2,'#8a8a8a'); }
+  else if(p.type==='fume'){ px(x-1,y-1,3,3,'#8fbf3a'); px(x,y,1,1,'#c0e060'); }
+  else if(p.type==='magic'){ px(x,y,2,2,(Math.random()<.5?'#c39bff':'#8fe0d0')); }
+  else if(p.type==='milk'){ px(x,y,2,2,'#ffffff'); px(x,y,1,1,'#eef6ff'); }
   else { px(x,y,2,2,P.dirtD); }
 }
 
@@ -1064,9 +1165,11 @@ function drawEmma(sx,sy,face,state,anim){
   var skin=P.skin,skinD=P.skinD,hair='#2e1d12',hairH='#4a3020',hairD='#1c110a',OL='#141018';
   // outline
   px(X(5),y+1,12,4,OL); px(X(3),y+11,15,15,OL); px(X(2),y+13,3,10,OL); px(X(16),y+13,3,10,OL); px(X(5),y+25,5,11,OL); px(X(12),y+25,5,11,OL);
-  // shoes + legs
-  px(X(6),y+34,4,2,'#20242e'); px(X(12),y+34,4,2,'#20242e');
-  px(X(6),y+25,4,9,jean); px(X(12),y+25,4,9,jean); px(X(6),y+25,2,9,jeanH); px(X(14),y+25,2,9,jeanD);
+  // shoes + legs (stride)
+  var stp=(state==='walk')?Math.sin(anim):0;
+  var la=stp>0?2:0, lb=stp<0?2:0, lax=stp>0?1:0, lbx=stp<0?-1:0;
+  px(X(6+lax),y+25-la,4,9,jean); px(X(6+lax),y+25-la,2,9,jeanH); px(X(12+lbx),y+25-lb,4,9,jean); px(X(14+lbx),y+25-lb,2,9,jeanD);
+  px(X(6+lax),y+33-la,4,2,'#20242e'); px(X(12+lbx),y+33-lb,4,2,'#20242e');
   // top
   px(X(4),y+12,14,11,top); px(X(4),y+12,3,11,topH); px(X(15),y+12,3,11,topD); px(X(4),y+21,14,3,hem);
   var dots=[[6,15],[10,16],[13,18],[7,19],[12,14]]; for(var di=0;di<dots.length;di++) px(X(dots[di][0]),y+dots[di][1],1,1,P.white);
@@ -1074,7 +1177,7 @@ function drawEmma(sx,sy,face,state,anim){
   if(state==='throw'){ px(X(15),y+11,6,4,top); px(X(20),y+10,3,3,skin); px(X(2),y+14,3,8,top); px(X(2),y+21,3,2,skin); }
   else if(state==='hug'){ px(X(3),y+14,4,7,top); px(X(14),y+14,4,7,top); px(X(3),y+20,3,2,skin); px(X(15),y+20,3,2,skin); }
   else if(state==='cry'){ px(X(5),y+8,4,8,top); px(X(12),y+8,4,8,top); px(X(5),y+8,4,1,topH); }
-  else { px(X(2),y+14,3,9,top); px(X(16),y+14,3,9,top); px(X(2),y+14,3,2,topH); px(X(2),y+21,3,2,skin); px(X(16),y+21,3,2,skin); }
+  else { var aw=(state==='walk')?(stp>0?1:-1):0; px(X(2),y+14+aw,3,9,top); px(X(16),y+14-aw,3,9,top); px(X(2),y+14+aw,3,2,topH); px(X(2),y+21+aw,3,2,skin); px(X(16),y+21-aw,3,2,skin); }
   // head
   px(X(6),y+3,10,9,skin); px(X(6),y+3,10,2,shade(skin,1.08)); px(X(6),y+10,10,2,skinD);
   // hair + bun
@@ -1148,8 +1251,11 @@ function drawKidJordan(sx,sy,face,state,anim,flash){
   var skin=P.skin,skinD=P.skinD,hair='#7a5330',hairH='#9c6f42',OL='#0e0f12';
   // outline
   px(X(5),y-1,13,10,OL); px(X(4),y+8,15,10,OL); px(X(3),y+9,4,7,OL); px(X(15),y+9,4,7,OL); px(X(6),y+17,5,7,OL); px(X(12),y+17,5,7,OL);
-  // sneakers + legs
-  px(X(6),y+22,5,2,'#20242e'); px(X(12),y+22,5,2,'#20242e'); px(X(7),y+17,4,6,skin); px(X(12),y+17,4,6,skin);
+  // sneakers + legs (stride)
+  var stp=(state==='walk')?Math.sin(anim):0;
+  var la=stp>0?2:0, lb=stp<0?2:0, lax=stp>0?1:0, lbx=stp<0?-1:0;
+  px(X(7+lax),y+17-la,4,6,skin); px(X(12+lbx),y+17-lb,4,6,skin);
+  px(X(6+lax),y+22-la,5,2,'#20242e'); px(X(12+lbx),y+22-lb,5,2,'#20242e');
   // shorts
   px(X(5),y+14,13,4,shortc); px(X(5),y+14,13,1,shade(shortc,1.6));
   // tee
@@ -1160,7 +1266,7 @@ function drawKidJordan(sx,sy,face,state,anim,flash){
   // arms by pose
   if(state==='throw'){ px(X(15),y+8,6,4,skin); px(X(2),y+11,4,5,skin); }
   else if(state==='cheer'||state==='hug'){ px(X(1),y+4,4,6,skin); px(X(14),y+4,4,6,skin); }
-  else { px(X(1),y+8,4,6,skin); px(X(14),y+8,4,6,skin); }
+  else { var aw=(state==='walk')?(stp>0?1:-1):0; px(X(1),y+8+aw,4,6,skin); px(X(14),y+8-aw,4,6,skin); }
   // big kid head
   px(X(4),y-1,12,9,skin); px(X(4),y-1,12,2,shade(skin,1.08)); px(X(4),y+7,12,2,skinD);
   px(X(4),y-3,12,3,hair); px(X(4),y-3,12,1,hairH); px(X(3),y-1,2,4,hair); px(X(15),y-1,2,4,hair);
@@ -1168,6 +1274,124 @@ function drawKidJordan(sx,sy,face,state,anim,flash){
   px(X(7),y+2,2,2,'#141018'); px(X(12),y+2,2,2,'#141018'); px(X(7),y+2,1,1,'#fff'); px(X(12),y+2,1,1,'#fff');
   px(X(8),y+6,5,1,'#9a5450');
   endFlip(flipped);
+}
+function drawPresley(sx,sy,face,state,anim){
+  var flipped=beginFlip(sx,20,face); function X(x){ return sx+x; }
+  var bob=(state==='walk')?(Math.sin(anim)*1.5|0):0; var y=sy+bob;
+  var tee='#f4f2ec', teeH='#ffffff', teeD='#d6d2c6', OL='#2a2a30';
+  var shortc='#3a4150', shortD='#2a303c', skin=P.skin, skinD=P.skinD, hair='#7a5a34', hairH='#9c7846', hairD='#5a3f22';
+  // outline (shorter than Ronda: body sits a touch lower)
+  px(X(5),y+3,12,4,OL); px(X(4),y+7,13,15,OL); px(X(2),y+13,3,9,OL); px(X(15),y+13,3,9,OL); px(X(5),y+22,5,11,OL); px(X(11),y+22,5,11,OL);
+  // legs (bare) + crocs, with stride
+  var stp=(state==='walk')?Math.sin(anim):0, la=stp>0?2:0, lb=stp<0?2:0, lax=stp>0?1:0, lbx=stp<0?-1:0;
+  px(X(6+lax),y+22-la,4,7,skin); px(X(11+lbx),y+22-lb,4,7,skin); px(X(6+lax),y+22-la,2,7,shade(skin,1.08));
+  // crocs (chunky, teal)
+  px(X(5+lax),y+28-la,6,3,'#3aa0a0'); px(X(11+lbx),y+28-lb,6,3,'#3aa0a0'); px(X(5+lax),y+28-la,6,1,'#5ac0c0');
+  // shorts
+  px(X(5),y+18,12,5,shortc); px(X(5),y+18,12,1,shade(shortc,1.3)); px(X(5),y+21,12,1,shortD); px(X(10),y+18,1,5,shortD);
+  // white tee
+  px(X(4),y+9,14,10,tee); px(X(4),y+9,3,10,teeH); px(X(15),y+9,3,10,teeD);
+  px(X(10),y+11,4,3,'#b04030'); px(X(10),y+11,4,1,'#d06050'); // little farm logo
+  // arms (swing)
+  var aw=(state==='walk')?(stp>0?1:-1):0;
+  if(state==='throw'){ px(X(15),y+9,6,4,tee); px(X(20),y+8,3,3,skin); px(X(2),y+11,3,7,tee); px(X(2),y+18,3,2,skin); }
+  else if(state==='hug'){ px(X(3),y+10,4,7,tee); px(X(14),y+10,4,7,tee); px(X(3),y+16,3,2,skin); px(X(15),y+16,3,2,skin); }
+  else { px(X(2),y+10+aw,3,8,tee); px(X(15),y+10-aw,3,8,tee); px(X(2),y+10+aw,3,2,teeH); px(X(2),y+18+aw,3,2,skin); px(X(15),y+18-aw,3,2,skin); }
+  // head
+  px(X(6),y+3,10,8,skin); px(X(6),y+3,10,2,shade(skin,1.08)); px(X(6),y+9,10,2,skinD);
+  // hair pulled back + braid over shoulder
+  px(X(5),y+1,12,4,hair); px(X(5),y+4,2,6,hair); px(X(15),y+4,2,6,hairD); px(X(6),y+1,10,1,hairH);
+  px(X(15),y+8,3,8,hair); px(X(15),y+8,3,1,hairH); px(X(16),y+11,1,1,hairD); px(X(16),y+14,1,1,hairD); // braid
+  // face — friendly like Ronda
+  px(X(8),y+6,1,2,'#20160e'); px(X(13),y+6,1,2,'#20160e'); px(X(8),y+7,1,1,'#fff'); px(X(13),y+7,1,1,'#fff');
+  px(X(9),y+9,4,1,'#b3564a');
+  endFlip(flipped);
+}
+function drawGoat(go){
+  var sx=go.x-world.scrollX, sy=go.y; if(sx<-24||sx>VW+24) return;
+  var flipped=beginFlip(sx,18,go.dir); function X(x){ return sx+x; }
+  var wob=Math.sin(go.walkT*6)*1|0; var y=sy+wob;
+  var body='#e8e4d8', bH='#ffffff', bD='#c4bfae', OL='#3a352c';
+  // outline
+  px(X(2),y+3,15,9,OL); px(X(13),y-2,7,8,OL); px(X(3),y+10,3,6,OL); px(X(11),y+10,3,6,OL);
+  // legs
+  px(X(3),y+10,3,6,bD); px(X(11),y+10,3,6,bD); px(X(3),y+15,3,1,'#3a352c'); px(X(11),y+15,3,1,'#3a352c');
+  // body
+  px(X(2),y+3,14,8,body); px(X(2),y+3,14,2,bH); px(X(2),y+9,14,2,bD);
+  // tail
+  px(X(0),y+3,2,3,body);
+  // head/neck
+  px(X(13),y,6,8,body); px(X(13),y,6,2,bH);
+  // horns
+  px(X(13),y-3,1,3,'#8a7a5a'); px(X(17),y-3,1,3,'#8a7a5a');
+  // ear
+  px(X(12),y+2,2,2,bD);
+  // face
+  px(X(17),y+3,1,1,'#20160e'); px(X(18),y+5,1,2,'#c4bfae'); // eye + snout
+  // beard
+  px(X(14),y+7,2,3,bD);
+  endFlip(flipped);
+}
+function drawMilk(mk){
+  var x=mk.x-world.scrollX, y=mk.y; if(x<-10||x>VW+10) return;
+  var blink = mk.t>3.2 && (Math.floor(mk.t*8)%2===0);
+  if(blink) return; // flicker before vanishing
+  var yy=y - Math.abs(Math.sin(mk.t*4))*2;
+  px(x-3,yy-6,6,4,'#ffffff'); px(x-3,yy-6,6,1,'#eef6ff'); px(x-4,yy-3,8,3,'#f4f8ff'); // splash
+  px(x-3,yy-2,6,2,'#dfe9f2');
+  px(x-1,yy-9,1,1,P.ui);
+}
+function drawFriday(){
+  if(!friday.active) return;
+  var x=friday.x-world.scrollX, y=GROUND;
+  var blk='#1c1e24', blkH='#33363f', OL='#0a0b0e', hat='#5a3a8a', hatH='#7a5aaa';
+  if(friday.mode==='cauldron'){
+    var cx=friday.cx-world.scrollX;
+    // cauldron
+    px(cx-8,y-10,16,10,'#26262c'); px(cx-8,y-10,16,2,'#3a3a42'); px(cx-9,y-2,18,2,'#1a1a20');
+    px(cx-6,y-12,12,3,'#2f8f5f'); // green brew
+    // legs
+    px(cx-7,y,2,3,'#1a1a20'); px(cx+5,y,2,3,'#1a1a20');
+  }
+  // cat body (side)
+  px(x-1,y-9,13,9,OL);
+  px(x,y-8,11,7,blk); px(x,y-8,11,2,blkH);
+  px(x+9,y-12,5,5,blk); px(x+9,y-12,5,1,blkH);   // head
+  px(x+9,y-14,2,3,blk); px(x+12,y-14,2,3,blk);   // ears
+  px(x-2,y-8,2,6,blk);                            // tail up
+  px(x+1,y-2,2,3,blk); px(x+8,y-2,2,3,blk);       // legs
+  // witch hat
+  px(x+8,y-18,7,2,hat); px(x+9,y-22,5,4,hat); px(x+10,y-24,3,2,hat); px(x+8,y-18,7,1,hatH);
+  // eye
+  px(x+11,y-11,1,1,'#8fe0a0');
+}
+function drawCheese(pr){
+  var x=pr.x-world.scrollX, y=pr.y;
+  // orange cloud puffs
+  px(x-7,y-4,14,9,'#f0a83b'); px(x-9,y-1,5,5,'#e89526'); px(x+5,y-2,6,6,'#f0a83b');
+  px(x-5,y-6,8,4,'#f6be5a'); px(x-7,y-4,14,2,'#f8c46a');
+}
+function drawPresleyEnemy(e){
+  var sx=e.x-world.scrollX, sy=e.y; if(sx<-30||sx>VW+30) return;
+  if(e.ko) g.globalAlpha=0.55;
+  var dy=e.ko?8:0, st=e.ko?'idle':'walk';
+  if(e.kind==='ronda') drawRonda(sx, sy+dy, e.face, st, e.anim);
+  else if(e.kind==='sookie') drawDog(sx, sy+dy, e.face, false);
+  else drawToddBody(sx, sy+dy, e.face, false, false);
+  g.globalAlpha=1;
+  if(e.ko){ px(sx+3,sy-4,1,1,'#ffd23b'); px(sx+9,sy-6,1,1,'#ffd23b'); px(sx+6,sy-8,1,1,'#fff'); }
+}
+function drawPailHUD(){
+  var pw=18, ph=22, x=8, y=16;
+  // pail (bucket) outline
+  px(x-1,y-1,pw+2,ph+2,'#000'); px(x,y,pw,ph,'#8a9098'); px(x,y,pw,3,'#b0b6bc');
+  // milk fill
+  var f=Math.min(1,pail/pailMax), fh=Math.round((ph-4)*f);
+  if(fh>0){ px(x+2,y+ph-2-fh,pw-4,fh,'#ffffff'); px(x+2,y+ph-2-fh,pw-4,1,'#eef6ff'); }
+  // rim + handle
+  px(x-1,y,pw+2,2,'#6a7078'); px(x+3,y-3,pw-6,2,'#8a9098');
+  g.fillStyle=P.white; g.font='7px monospace'; g.textAlign='left'; g.textBaseline='top';
+  gtext(pail+'/'+pailMax+' PAIL', x+pw+6, y+2);
 }
 function drawJordan(){ // Emma-mode boss
   var sx=boss.x-world.scrollX, sy=boss.y;
@@ -1561,12 +1785,16 @@ function drawHUD(){
     drawCd(8, VH-26, A1_CD, 0.5, '💨', '#8fd07a');
     drawCd(48, VH-26, A2_CD, 3.6, '🌊', '#7fd0ff');
     jordanHUD();
+  } else if(char.id==='presley'){
+    drawCd(8, VH-26, A1_CD, 0.55, '🧀', '#f0a83b');
+    drawCd(48, VH-26, A2_CD, 3.4, '🐈', '#c39bff');
+    drawPailHUD();
   } else {
     drawCd(8, VH-26, A1_CD, 0.85, '🐕', P.parkaHi);
     drawCd(48, VH-26, A2_CD, 2.0, '💋', P.heart);
   }
   // progress to boss (Ronda only — Emma & Jordan use their own HUDs)
-  if(char.id!=='emma' && char.id!=='jordan' && !boss.active){
+  if(char.id!=='emma' && char.id!=='jordan' && char.id!=='presley' && !boss.active){
     var pw=80, pxp=VW/2-pw/2, prog=Math.min(1,(player.x)/BOSS_TRIGGER);
     px(pxp-1,VH-23,pw+2,5,P.black); px(pxp,VH-22,pw,3,'#333'); px(pxp,VH-22,pw*prog,3,P.ui);
     px(pxp+pw-1,VH-25,2,7,P.barn); // barn/flag at end
@@ -1579,6 +1807,8 @@ function drawHUD(){
       ? '◄ ► MOVE    SPACE JUMP    J = SNACK    K = ETHAN    P PAUSE    M MUTE'
       : char.id==='jordan'
       ? '◄ ► MOVE    SPACE JUMP    J = WHOOPEE    K = GEYSER    P PAUSE    M MUTE'
+      : char.id==='presley'
+      ? '◄ ► MOVE    SPACE JUMP    J = CHEESE    K = FRIDAY    P PAUSE    M MUTE'
       : '◄ ► MOVE    SPACE JUMP    J = SOOKIE    K = LOVE    P PAUSE    M MUTE';
     gtext(legend, VW/2, VH-2);
   }
@@ -1675,6 +1905,8 @@ function drawSelect(){
         drawEmma(x+cw/2-10, y+22, 1, 'idle', performance.now()/300);
       } else if(r.id==='jordan'){
         drawKidJordan(x+cw/2-9, y+30, 1, 'idle', performance.now()/300, false);
+      } else if(r.id==='presley'){
+        drawPresley(x+cw/2-10, y+26, 1, 'idle', performance.now()/300);
       } else {
         drawRonda(x+cw/2-10, y+26, 1, 'idle', performance.now()/300);
         drawDog(x+cw/2+8, y+44, -1,false);
@@ -1724,6 +1956,20 @@ function drawWin(){
     if(Math.floor(tj*2)%2===0){ g.fillStyle=P.white; g.font='7px monospace'; gtext('TAP TO PLAY AGAIN', VW/2, VH-24); }
     return;
   }
+  if(char.id==='presley'){
+    drawSky(); drawGround();
+    particles.forEach(drawParticle);
+    drawPresley(VW/2-10, GROUND-32, 1, 'hug', performance.now()/300);
+    drawPailHUD();
+    g.textAlign='center'; g.textBaseline='top';
+    var tp=performance.now()/1000;
+    g.font='bold 18px monospace'; g.fillStyle=P.black; gtext('PAIL FULL!', VW/2+2, 24); g.fillStyle=P.ui; gtext('PAIL FULL!', VW/2, 22);
+    g.font='7px monospace'; g.fillStyle=P.white; gtext('Every goat milked, the whole family fended off.', VW/2, 50);
+    g.fillStyle=P.ui; gtext('Presley bottles the goat jizz. Friday approves.', VW/2, 62);
+    g.fillStyle=P.ui; g.font='bold 9px monospace'; gtext('FINAL SCORE: '+score, VW/2, 78);
+    if(Math.floor(tp*2)%2===0){ g.fillStyle=P.white; g.font='7px monospace'; gtext('TAP TO PLAY AGAIN', VW/2, VH-24); }
+    return;
+  }
   drawSky(); drawGround();
   drawTodd(); // shows defeated todd sitting
   drawRonda(player.x-world.scrollX, player.y, player.face, 'hug', performance.now()/300);
@@ -1766,6 +2012,17 @@ function drawLose(){
     if(Math.floor(performance.now()/500)%2===0){ g.fillStyle=P.white; g.font='7px monospace'; gtext('TAP TO TRY AGAIN', VW/2, VH-24); }
     return;
   }
+  if(char.id==='presley'){
+    drawSky(); drawGround();
+    g.textAlign='center'; g.textBaseline='top';
+    g.font='bold 16px monospace'; g.fillStyle=P.black; gtext('SWARMED!', VW/2+2, 40);
+    g.fillStyle=P.red; gtext('SWARMED!', VW/2, 38);
+    g.font='7px monospace'; g.fillStyle=P.white;
+    gtext('Ronda, Todd and Sookie got her before the pail filled.', VW/2, 66);
+    g.fillStyle=P.ui; g.font='bold 9px monospace'; gtext('PAIL: '+pail+'/'+pailMax+'   SCORE: '+score, VW/2, 82);
+    if(Math.floor(performance.now()/500)%2===0){ g.fillStyle=P.white; g.font='7px monospace'; gtext('TAP TO TRY AGAIN', VW/2, VH-24); }
+    return;
+  }
   drawSky(); drawGround();
   g.textAlign='center'; g.textBaseline='top';
   g.font='bold 16px monospace'; g.fillStyle=P.black; gtext('CORNERED!', VW/2+2, 40);
@@ -1802,6 +2059,16 @@ function drawPlay(){
     var pInvJ = player.inv>0 && Math.floor(blinkT*20)%2===0;
     if(!pInvJ) drawKidJordan(player.x-world.scrollX, player.y, player.face, player.state, player.anim, false);
     drawGeyserFX();
+  } else if(char.id==='presley'){
+    drawSky(); drawGround();
+    for(var gi=0;gi<goats.length;gi++){ groundShadow(goats[gi].x, goats[gi].w); drawGoat(goats[gi]); }
+    for(var mi=0;mi<milks.length;mi++) drawMilk(milks[mi]);
+    for(var i=0;i<enemies.length;i++){ groundShadow(enemies[i].x, enemies[i].w); drawPresleyEnemy(enemies[i]); }
+    projectiles.forEach(function(pr){ if(pr.type==='cheese') drawCheese(pr); });
+    drawFriday();
+    groundShadow(player.x, player.w);
+    var pInvP = player.inv>0 && Math.floor(blinkT*20)%2===0;
+    if(!pInvP) drawPresley(player.x-world.scrollX, player.y, player.face, player.state, player.anim);
   } else {
     drawSky(); drawGround();
     for(var i=0;i<enemies.length;i++){ if(!enemies[i].dead){ groundShadow(enemies[i].x, enemies[i].w); drawEnemy(enemies[i]); } }
@@ -1861,6 +2128,7 @@ function setControlLabels(c){
   if(!b1||!b2) return;
   if(c.id==='emma'){ b1.innerHTML='🍩<span class="cap">SNACK</span>'; b2.innerHTML='🚂<span class="cap">ETHAN</span>'; }
   else if(c.id==='jordan'){ b1.innerHTML='💨<span class="cap">WHOOPEE</span>'; b2.innerHTML='🌊<span class="cap">GEYSER</span>'; }
+  else if(c.id==='presley'){ b1.innerHTML='🧀<span class="cap">CHEESE</span>'; b2.innerHTML='🐈<span class="cap">FRIDAY</span>'; }
   else { b1.innerHTML='🐕<span class="cap">SOOKIE</span>'; b2.innerHTML='💋<span class="cap">LOVE</span>'; }
 }
 function tryStart(){
