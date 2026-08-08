@@ -61,7 +61,7 @@
    Single-file, canvas 2D, procedural pixel art + chiptune.
    Deploy: this is index.html at repo root (GitHub Pages).
    ============================================================ */
-var BUILD = "1786176692"; // replaced at deploy time (unix ts)
+var BUILD = "1786177067"; // replaced at deploy time (unix ts)
 
 /* -------------------- Self-updater (matches your deploy flow) -------------------- */
 (function(){
@@ -830,7 +830,7 @@ function jordanEntities(dt){
     e.walkT+=dt; var dir=(player.x<e.x)?-1:1; e.face=dir; e.x += dir*40*dt;
     if(player.inv<=0 && aabb(player.x,player.y,player.w,player.h, e.x,e.y,e.w,e.h)) hurtPlayer(1, e.x<player.x?1:-1);
   }
-  for(var s=0;s<structs.length;s++){ var S=structs[s]; if(S.shk>0) S.shk-=dt; if(S.dead && S.kind==='tower' && S.fall<1) S.fall=Math.min(1, S.fall + dt/0.85); }
+  for(var s=0;s<structs.length;s++){ var S=structs[s]; if(S.shk>0) S.shk-=dt; if(S.dead && S.fall<1) S.fall=Math.min(1, S.fall + dt/(S.kind==='bridge'?1.2:S.kind==='ship'?1.1:0.85)); }
   // Tony
   if(!boss.active && player.x>J_TRIGGER){ boss.active=true; addFloat('TONY WANTS TO FIGHT!', player.x, player.y-30, P.red); }
   if(boss.active && !boss.defeated){
@@ -853,7 +853,7 @@ function jordanEntities(dt){
           if(e2.hp<=0){ e2.dead=true; addScore(100,e2.x,e2.y-8); } done=true; break; } }
       if(!done){ for(var t=0;t<structs.length;t++){ var st=structs[t]; if(st.dead) continue;
         if(Math.abs(pr.x-st.x)<st.hw && pr.y>st.topY){ st.hp--; st.shk=0.3; SFX.fart(); for(var g1=0;g1<5;g1++) particles.push(makeP(pr.x,pr.y,'gas'));
-          if(st.hp<=0){ st.dead=true; if(st.kind==='tower'){ st.fall=0; st.fallDir=(player.x<st.x)?1:-1; } addScore(300,st.x,GROUND-30); SFX.crash(); shake=9;
+          if(st.hp<=0){ st.dead=true; st.fall=0; st.fallDir=(player.x<st.x)?1:-1; addScore(300,st.x,GROUND-30); SFX.crash(); shake=9;
             var nd = st.kind==='bridge'?36:22;
             for(var d=0;d<nd;d++) particles.push(makeP(st.x+(Math.random()*st.hw*1.6-st.hw*0.8), GROUND-18-Math.random()*40, st.kind==='ship'?'water':'debris'));
             addFloat(st.label+' DOWN!', st.x, GROUND-46, P.ui, 12); }
@@ -1188,8 +1188,8 @@ function drawStruct(st){
   var x=st.x-world.scrollX; if(x<-170||x>VW+170) return;
   var jx=(st.shk>0)?((Math.random()*2-1)*2|0):0;
   if(st.kind==='tower') drawWaterTower(x+jx, st.dead, st);
-  else if(st.kind==='ship') drawShip(x+jx, st.dead);
-  else drawGoldenGate(x+jx, st.dead);
+  else if(st.kind==='ship') drawShip(x+jx, st.dead, st);
+  else drawGoldenGate(x+jx, st.dead, st);
 }
 function towerBody(cx, gy){
   var steel='#8a9098', steelD=shade(steel,0.7), steelL=shade(steel,1.15);
@@ -1228,29 +1228,43 @@ function drawWaterTower(x, dead, st){
     px(wx,y-3,ww,3,'#5aa0d0'); px(wx,y-2,ww,2,mix('#5aa0d0','#bfe8ff',0.4));
   }
 }
-function drawShip(x, dead){
+function shipBody(cx, gy){
+  var hull='#b03030', hullD=shade(hull,0.7);
+  px(cx-40,gy-20,80,16,hull); px(cx-40,gy-8,80,4,hullD);
+  px(cx-44,gy-16,4,10,hull); px(cx+40,gy-16,4,10,hull);
+  px(cx-40,gy-20,80,2,shade(hull,1.2));
+  for(var i=-3;i<=3;i++){ px(cx+i*10-1,gy-14,3,3,'#ffe27a'); }
+  px(cx-8,gy-30,20,10,'#e0e0e0'); px(cx-8,gy-30,20,2,'#c0c0c0'); px(cx-4,gy-27,4,4,'#7fbfe0'); px(cx+2,gy-27,4,4,'#7fbfe0');
+  px(cx-20,gy-52,2,32,'#6a4a2a'); px(cx+18,gy-46,2,26,'#6a4a2a');
+  px(cx-30,gy-52,20,14,'#f4f0e0'); px(cx-30,gy-52,20,2,'#d8d2bc');
+  px(cx+8,gy-46,20,12,'#f4f0e0'); px(cx+8,gy-46,20,2,'#d8d2bc');
+  px(cx+2,gy-38,5,8,'#333'); px(cx+2,gy-38,5,2,'#c02020');
+}
+function waterPool(cx, gy, halfW, col){ g.fillStyle=col; g.beginPath(); if(g.ellipse) g.ellipse(cx,gy,halfW,Math.max(3,halfW*0.16),0,0,Math.PI*2); else g.arc(cx,gy,halfW,0,Math.PI*2); g.fill(); }
+function drawShip(x, dead, st){
   var y=GROUND;
-  if(!dead){
-    var hull='#b03030', hullD=shade(hull,0.7);
-    px(x-46,y-4,92,4,'#3a6a90');
-    px(x-40,y-20,80,16,hull); px(x-40,y-8,80,4,hullD);
-    px(x-44,y-16,4,10,hull); px(x+40,y-16,4,10,hull);
-    px(x-40,y-20,80,2,shade(hull,1.2));
-    for(var i=-3;i<=3;i++){ px(x+i*10-1,y-14,3,3,'#ffe27a'); }
-    px(x-8,y-30,20,10,'#e0e0e0'); px(x-8,y-30,20,2,'#c0c0c0'); px(x-4,y-27,4,4,'#7fbfe0'); px(x+2,y-27,4,4,'#7fbfe0');
-    px(x-20,y-52,2,32,'#6a4a2a'); px(x+18,y-46,2,26,'#6a4a2a');
-    px(x-30,y-52,20,14,'#f4f0e0'); px(x-30,y-52,20,2,'#d8d2bc');
-    px(x+8,y-46,20,12,'#f4f0e0'); px(x+8,y-46,20,2,'#d8d2bc');
-    px(x+2,y-38,5,8,'#333'); px(x+2,y-38,5,2,'#c02020');
+  if(!dead){ px(x-46,y-4,92,4,'#3a6a90'); shipBody(x,y); return; }
+  var f=st?(st.fall||0):1, dir=st?(st.fallDir||1):1;
+  if(f<1){
+    var dy=f*42, ang=dir*0.7*f;                   // sink + roll
+    g.save(); g.translate(x, y); g.rotate(ang); g.translate(0, dy); shipBody(0,0); g.restore();
+    // flooding pool rises over the hull
+    waterPool(x, y-3, 48+f*22, '#3a6a90');
+    px(x-58,y-6,116,1,'#5a8ab0');
+    if(Math.random()<0.75) particles.push(makeP(x+(Math.random()*80-40), y-5, 'water'));
   } else {
-    px(x-30,y-2,60,3,'#3a6a90'); px(x-10,y-10,16,8,'#7a2020'); px(x-24,y-6,10,4,shade('#b03030',0.8)); px(x+16,y-4,10,3,'#6a4a2a');
+    // gone under: calm pool, foam ring, floating debris, mast tip, bubbles
+    waterPool(x, y-3, 72, '#3a6a90'); px(x-52,y-6,104,1,'#5a8ab0');
+    px(x-6,y-10,2,7,'#6a4a2a');                     // mast tip poking out
+    px(x+12,y-5,10,3, shade('#b03030',0.7)); px(x-24,y-5,12,3,'#6a4a2a'); // debris
+    if(Math.random()<0.35) particles.push(makeP(x+(Math.random()*70-35), y-5, 'water'));
   }
 }
-function drawGoldenGate(x, dead){
+function drawGoldenGate(x, dead, st){
   var y=GROUND, IO='#c1502e', IOd=shade(IO,0.72), IOl=shade(IO,1.18);
+  var towTop=y-100, deckY=y-34;
   if(!dead){
     px(x-122,y-6,244,6,'#3a6a90'); px(x-122,y-6,244,1,'#5a8ab0');
-    var towTop=y-100, deckY=y-34;
     [-70,70].forEach(function(tx){
       px(x+tx-9,towTop,5,100,IOl); px(x+tx+4,towTop,5,100,IOd); px(x+tx-4,towTop,8,100,IO);
       px(x+tx-9,towTop+10,18,4,IO); px(x+tx-9,towTop+28,18,4,IO); px(x+tx-9,deckY-8,18,4,IO);
@@ -1271,11 +1285,36 @@ function drawGoldenGate(x, dead){
     px(x-120,deckY,240,5,IOd); px(x-120,deckY,240,1,IOl); px(x-120,deckY+4,240,1,shade(IO,0.55));
     for(var rx=-118; rx<118; rx+=8) px(x+rx,deckY-2,4,1,IOl);
     g.fillStyle=P.white; g.font='6px monospace'; g.textAlign='center'; g.textBaseline='bottom'; gtext('GOLDEN GATE', x, towTop-6);
+    return;
+  }
+  // ---- COLLAPSE ----
+  var f=st?(st.fall||0):1;
+  px(x-122,y-6,244,6,'#3a6a90'); px(x-122,y-6,244,1,'#5a8ab0');
+  if(f<1){
+    var sag=f*72, lean=f*0.55, drop=f*8;
+    // towers buckle outward at their bases
+    [-70,70].forEach(function(tx){ var d=tx<0?-1:1;
+      g.save(); g.translate(x+tx, y-6); g.rotate(d*lean);
+      px(-4,-100,8,100,IO); px(-4,-100,3,100,IOl); px(2,-100,3,100,IOd);
+      px(-9,-88,18,4,IO); px(-9,-66,18,4,IO);
+      g.restore();
+    });
+    // deck sags in the middle and drops
+    g.strokeStyle=IOd; g.lineWidth=3; g.beginPath();
+    for(var i=0;i<=12;i++){ var tt=i/12, xx=x-120+240*tt, dip=Math.sin(tt*Math.PI)*sag, yy=deckY+dip+drop; if(i===0)g.moveTo(xx,yy); else g.lineTo(xx,yy); }
+    g.stroke();
+    // snapped cables dangling from tower tops
+    g.lineWidth=1; g.strokeStyle=IO;
+    for(var c=-100;c<=100;c+=22){ g.beginPath(); g.moveTo(x+c, towTop+18+((c*7)%12)); var tt2=(c+120)/240; g.lineTo(x+c+((c%3)-1)*3, deckY+Math.sin(tt2*Math.PI)*sag+drop); g.stroke(); }
+    // splashes erupt where the deck hits the bay
+    if(Math.random()<0.9) particles.push(makeP(x+(Math.random()*180-90), y-4, 'water'));
   } else {
-    px(x-122,y-4,244,4,'#3a6a90');
-    px(x-90,y-2,26,2,shade(IO,0.8)); px(x+40,y-2,30,2,shade(IO,0.8));
-    px(x-30,y-8,16,6,shade(IO,0.7)); px(x-8,y-3,20,3,'#5a8ab0');
-    px(x-72,y-30,5,30,shade(IO,0.75));
+    // aftermath: broken tower stubs, deck chunks floating, foam
+    g.save(); g.translate(x-70,y-6); g.rotate(-0.5); px(-4,-46,8,46,shade(IO,0.82)); px(-4,-46,3,46,IO); g.restore();
+    g.save(); g.translate(x+70,y-6); g.rotate(0.5);  px(-4,-34,8,34,shade(IO,0.8));  px(-4,-34,3,34,IO); g.restore();
+    px(x-122,y-4,244,4,'#3a6a90'); px(x-122,y-5,244,1,'#5a8ab0');
+    px(x-46,y-6,20,4, shade(IO,0.7)); px(x+8,y-5,24,4, shade(IO,0.7)); px(x-14,y-7,16,3, shade(IO,0.75)); // floating deck chunks
+    if(Math.random()<0.35) particles.push(makeP(x+(Math.random()*220-110), y-4, 'water'));
   }
 }
 function drawIpad(){
